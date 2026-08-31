@@ -1,85 +1,68 @@
-# SIH 26' --- LiDAR Semantic Mapping Engine
+# SIH 26 - LiDAR Mapping Engine
 
-A hand-coded C++ prototype for processing 3D LiDAR point clouds and
-building the foundations of a variable-resolution 2.5D
-elevation/semantic mapping system.
+A hand-coded C++ LiDAR processing and visualization engine developed for
+the SIH 26 project.
 
-The project is being developed for the **SIH 26'** problem statement,
-with the long-term pipeline:
+The project is being built incrementally, starting from raw LiDAR
+point-cloud loading and visualization and progressing toward semantic
+understanding and a variable-resolution 2.5D elevation/semantic map.
+
+------------------------------------------------------------------------
+
+## Project Status
+
+Current development includes:
+
+-   LiDAR point-cloud loading from `.bin` files
+-   Point-cloud validation and statistics
+-   OpenGL-based point-cloud visualization
+-   3D camera controls
+-   Spatial grid generation
+-   Per-cell elevation calculation
+-   Per-cell intensity calculation
+-   Per-cell point counting
+-   Minimum elevation tracking
+-   Grid-based point visualization
+-   Test LiDAR dataset generation
+
+### Planned Processing Pipeline
 
 ``` text
-Raw 3D LiDAR
-     ↓
-Point Cloud Ingestion
-     ↓
+Raw LiDAR Point Cloud
+        ↓
+Point Cloud Processing
+        ↓
 Spatial Representation
-     ↓
+        ↓
 AI / Semantic Understanding
-     ↓
+        ↓
+Semantic Classification
+        ↓
 Variable-Resolution 2.5D Map
-     ↓
-Rendering / Visualization
+        ↓
+Visualization / Rendering
 ```
 
-The current implementation focuses on building the core C++ mapping and
-rendering infrastructure before integrating the AI/semantic pipeline.
+The AI semantic-understanding and semantic-mapping stages are planned
+phases of development.
 
 ------------------------------------------------------------------------
 
-## Current Status
-
-### Implemented
-
--   C++17 project structure
--   CMake build system
--   GLFW + OpenGL 3.3 window
--   GLAD OpenGL loader
--   GLM mathematics
--   LiDAR `.bin` point-cloud loading
--   XYZ point-cloud loading
--   Point-cloud statistics:
-    -   point count
-    -   X/Y/Z ranges
-    -   intensity range
--   OpenGL point-cloud renderer
--   Camera movement and mouse look
--   Spatial grid representation
--   Grid cell indexing
--   Per-cell:
-    -   point count
-    -   average elevation
-    -   average intensity
-    -   minimum elevation
--   Grid generation from raw point-cloud data
--   Test `.bin` generator for development
--   Basic grid visualization infrastructure
-
-### In Progress
-
-The next stages are:
-
-1.  Improve the 2.5D map representation.
-2.  Add terrain/elevation processing.
-3.  Introduce variable-resolution grid logic.
-4.  Add semantic classes to map cells.
-5.  Build the AI/semantic understanding pipeline.
-6.  Connect AI output to the mapping engine.
-7.  Improve visualization and interaction.
-8.  Test against larger and more realistic LiDAR datasets.
-
-> **Important:** AI pipelining is part of the planned architecture. It
-> is intentionally introduced after the low-level point-cloud and
-> spatial-mapping foundations are stable.
-
-------------------------------------------------------------------------
-
-## Project Structure
+## Repository Structure
 
 ``` text
 SIH/
+│
 ├── CMakeLists.txt
 ├── README.md
 ├── .gitignore
+│
+├── data/
+│   ├── test.bin
+│   └── test.xyz
+│
+├── external/
+│   └── glad/
 │
 ├── include/
 │   ├── Camera.h
@@ -91,74 +74,87 @@ SIH/
 │
 ├── src/
 │   ├── Camera.cpp
+│   ├── create_test_bin.cpp
+│   ├── main.cpp
 │   ├── MapCell.cpp
 │   ├── PointCloud.cpp
 │   ├── Renderer.cpp
-│   ├── SpatialGrid.cpp
-│   ├── create_test_bin.cpp
-│   └── main.cpp
+│   └── SpatialGrid.cpp
 │
 ├── shaders/
-│   ├── point.vert
-│   ├── point.frag
+│   ├── grid.frag
 │   ├── grid.vert
-│   └── grid.frag
+│   ├── point.frag
+│   └── point.vert
 │
-├── data/
-│   └── test.bin
-│
-├── external/
-│   └── glad/
-│
-└── build/
+└── vid/
+    └── tutorial video
 ```
 
 ------------------------------------------------------------------------
 
-# Prerequisites
+## Tutorial Video
 
-## Required
+The `vid/` directory contains the tutorial video used as a development
+reference.
 
-### C++ compiler
+Open the `vid/` directory in the repository to access the video.
 
-The project uses **C++17**.
+The tutorial video is kept separate from the source code but is included
+as part of the project's development documentation.
+
+------------------------------------------------------------------------
+
+## Prerequisites
+
+### Operating System
 
 The current development environment uses:
 
 -   Windows
--   MSYS2
--   UCRT64
--   MinGW-w64 GCC
+-   MSYS2 UCRT64
+-   MinGW
+-   CMake
+-   Git
 
-### CMake
+### Required Software
 
-CMake **3.20 or newer**.
+A C++17-compatible compiler is required.
 
-### GLFW
+The current setup uses the MinGW compiler provided by MSYS2 UCRT64.
 
-GLFW is required for:
+Check CMake:
 
--   window creation
--   OpenGL context creation
--   keyboard input
--   mouse input
+``` powershell
+cmake --version
+```
+
+Check Git:
+
+``` powershell
+git --version
+```
 
 ### OpenGL
 
-An OpenGL 3.3 compatible graphics driver is required.
+The project currently targets:
 
-### GLM
+``` text
+OpenGL 3.3
+```
 
-GLM is used for:
+### GLFW
 
--   vectors
--   matrices
--   camera transformations
--   projection matrices
+GLFW is used for:
+
+-   Window creation
+-   OpenGL context creation
+-   Keyboard input
+-   Mouse input
 
 ### GLAD
 
-The required GLAD source is included in:
+GLAD is included in the repository:
 
 ``` text
 external/glad/
@@ -166,12 +162,13 @@ external/glad/
 
 ------------------------------------------------------------------------
 
-# Building
+## Building the Project
 
-Open a terminal at the project root:
+Clone the repository:
 
 ``` powershell
-cd D:\SIH
+git clone <repository-url>
+cd SIH
 ```
 
 Create the build directory:
@@ -186,320 +183,41 @@ Build the project:
 cmake --build build
 ```
 
-A successful build should produce:
+The main executable is generated as:
 
 ``` text
 build/SIH26.exe
-build/CreateTestBin.exe
 ```
 
 ------------------------------------------------------------------------
 
-# Running
+## Running the LiDAR Viewer
 
-## 1. Generate test LiDAR data
-
-The project includes a test-data generator so test cases do not need to
-be hardcoded into the main application.
-
-Run:
-
-``` powershell
-.\build\CreateTestBin.exe
-```
-
-This creates:
-
-``` text
-data/test.bin
-```
-
-The generated file contains synthetic LiDAR points in the expected
-binary format.
-
-------------------------------------------------------------------------
-
-## 2. Run the LiDAR viewer
-
-From the project root:
+Run from the project root:
 
 ``` powershell
 .\build\SIH26.exe
 ```
 
-You should see console output similar to:
+The application loads:
 
 ``` text
-OpenGL initialized successfully
-OpenGL version: 3.3.0
-Point cloud loaded successfully
-Points: 10000
-X range: ...
-Y range: ...
-Z range: ...
-Intensity range: ...
-Grid width: ...
-Grid height: ...
+data/test.bin
 ```
 
-The application then opens the OpenGL visualization window.
+and displays the LiDAR point cloud using OpenGL.
 
 ------------------------------------------------------------------------
 
-# Controls
+## Generating Test LiDAR Data
 
-  Key     Action
-  ------- ----------------------
-  `W`     Move forward
-  `S`     Move backward
-  `A`     Move left
-  `D`     Move right
-  `Q`     Move down
-  `E`     Move up
-  Mouse   Look around
-  `ESC`   Toggle mouse capture
-
-------------------------------------------------------------------------
-
-# Point Cloud Format
-
-The binary LiDAR format currently used by the loader is:
-
-``` text
-float x
-float y
-float z
-float intensity
-```
-
-Therefore every point occupies:
-
-``` text
-4 × sizeof(float)
-```
-
-bytes.
-
-Conceptually:
-
-``` text
-Point {
-    x
-    y
-    z
-    intensity
-}
-```
-
-The loader reads the binary file sequentially without converting the
-entire file into text.
-
-------------------------------------------------------------------------
-
-# Spatial Grid
-
-The current mapping foundation uses a 2D spatial grid over the X-Y
-plane.
-
-Each grid cell stores information derived from the LiDAR points that
-fall inside it.
-
-Conceptually:
-
-``` text
-                 X
-        ───────────────────→
-
-        ┌─────┬─────┬─────┐
-        │     │     │     │
-        ├─────┼─────┼─────┤
-        │     │     │     │
-        ├─────┼─────┼─────┤
-        │     │     │     │
-        └─────┴─────┴─────┘
-        ↑
-        Y
-```
-
-Current cell information includes:
-
-``` text
-pointCount
-elevation
-elevationSum
-minimumElevation
-intensity
-```
-
-The current elevation value is calculated as the mean Z value of the
-points in a cell.
-
-------------------------------------------------------------------------
-
-# Rendering Pipeline
-
-The current renderer has two primary concepts:
-
-### Point cloud
-
-``` text
-PointCloud
-    ↓
-OpenGL VBO
-    ↓
-VAO
-    ↓
-Vertex Shader
-    ↓
-Fragment Shader
-    ↓
-Rendered LiDAR points
-```
-
-### Grid
-
-``` text
-PointCloud
-    ↓
-SpatialGrid
-    ↓
-MapCell[]
-    ↓
-Grid representation
-    ↓
-OpenGL
-```
-
-The renderer is being kept separate from the mapping/data-processing
-code so that the mapping engine can evolve independently from
-visualization.
-
-------------------------------------------------------------------------
-
-# Planned AI Pipeline
-
-The AI component is a major part of the final architecture.
-
-The intended flow is:
-
-``` text
-             Raw LiDAR
-                 │
-                 ▼
-          Point Cloud Loader
-                 │
-                 ▼
-          Spatial Processing
-                 │
-                 ▼
-       ┌─────────────────────┐
-       │ AI / Semantic Model │
-       └─────────────────────┘
-                 │
-                 ▼
-        Semantic Information
-                 │
-                 ▼
-       2.5D Semantic Map
-                 │
-                 ▼
-       Variable Resolution
-                 │
-                 ▼
-             Renderer
-```
-
-The AI pipeline is expected to provide semantic information such as
-terrain/object classes that can later be associated with map cells.
-
-The low-level C++ engine remains responsible for:
-
--   point-cloud ingestion
--   spatial indexing
--   map representation
--   map updates
--   resolution management
--   rendering
-
-This separation allows the AI system to act as a semantic-information
-provider rather than coupling the entire application to a single model.
-
-------------------------------------------------------------------------
-
-# Variable-Resolution Mapping
-
-The final mapping system is intended to use different spatial
-resolutions depending on distance and importance.
-
-For example:
-
-``` text
-Sensor
-  ●
-  │
-  ├── High resolution
-  │      5 cm cells
-  │
-  ├──────── Medium resolution
-  │
-  └──────────────── Low resolution
-```
-
-The exact resolution strategy will be implemented as the mapping engine
-develops.
-
-The goal is to retain high-detail information near the sensor while
-reducing memory and computation requirements farther away.
-
-------------------------------------------------------------------------
-
-# Development Philosophy
-
-This project is intentionally being developed from the fundamentals
-upward.
-
-The core engine is being hand-coded in C++ rather than relying on a
-large pre-built mapping framework.
-
-The development order is approximately:
-
-``` text
-1. Project / Build System
-        ↓
-2. Point Cloud Representation
-        ↓
-3. Point Cloud Loading
-        ↓
-4. OpenGL Rendering
-        ↓
-5. Camera / Interaction
-        ↓
-6. Spatial Grid
-        ↓
-7. Elevation / MapCell Processing
-        ↓
-8. Variable Resolution
-        ↓
-9. Semantic Representation
-        ↓
-10. AI Pipeline
-        ↓
-11. AI → Map Integration
-        ↓
-12. Final Visualization
-```
-
-------------------------------------------------------------------------
-
-# Testing
-
-A synthetic point-cloud generator is included:
+The project contains a test-data generator:
 
 ``` text
 src/create_test_bin.cpp
 ```
 
-Build it with:
+Build the project:
 
 ``` powershell
 cmake --build build
@@ -511,91 +229,189 @@ Then run:
 .\build\CreateTestBin.exe
 ```
 
-This makes it possible to test the loader and mapping engine with
-generated data instead of embedding test cases inside the production
-code.
+This generates:
+
+``` text
+data/test.bin
+```
+
+The generated synthetic point cloud is used to test the point-cloud
+loader, spatial grid, and renderer.
 
 ------------------------------------------------------------------------
 
-# Clean Build
+## Current LiDAR Data Flow
 
-If the build directory becomes inconsistent:
-
-``` powershell
-Remove-Item -Recurse -Force build
+``` text
+data/test.bin
+      ↓
+PointCloud
+      ↓
+Point validation / statistics
+      ↓
+SpatialGrid
+      ↓
+MapCell
+      ↓
+Renderer
+      ↓
+OpenGL
 ```
 
-Then configure again:
+Each `MapCell` currently stores information such as:
 
-``` powershell
-cmake -S . -B build
+``` text
+elevation
+intensity
+pointCount
+elevationSum
+minimumElevation
 ```
 
-Build:
+The spatial grid converts continuous XY point-cloud space into discrete
+cells.
 
-``` powershell
-cmake --build build
+------------------------------------------------------------------------
+
+## Spatial Grid
+
+The current implementation uses a configurable cell size.
+
+Example:
+
+``` cpp
+SpatialGrid grid(
+    cloud.getMinX(),
+    cloud.getMaxX(),
+    cloud.getMinY(),
+    cloud.getMaxY(),
+    1.0f
+);
+```
+
+Each LiDAR point is mapped into a grid cell using its X/Y coordinates.
+
+For cells containing points, the system calculates:
+
+``` text
+Average Elevation
+Average Intensity
+Point Count
+Minimum Elevation
+```
+
+This forms the initial foundation for the project's 2.5D mapping system.
+
+------------------------------------------------------------------------
+
+## Rendering
+
+The renderer currently supports:
+
+-   LiDAR point rendering
+-   Grid-derived point rendering
+-   OpenGL shaders
+-   Depth testing
+-   3D camera movement
+-   Mouse-based camera control
+-   Keyboard navigation
+
+### Controls
+
+  Key     Action
+  ------- -------------------------
+  W       Move forward
+  S       Move backward
+  A       Move left
+  D       Move right
+  Q       Move down
+  E       Move up
+  Mouse   Look around
+  ESC     Capture / release mouse
+
+------------------------------------------------------------------------
+
+## Development Philosophy
+
+The core processing and mapping engine is being implemented manually in
+C++.
+
+The goal is to understand and implement the underlying pipeline rather
+than relying on a black-box mapping solution.
+
+Major components will be developed incrementally:
+
+``` text
+Point Cloud
+     ↓
+Spatial Grid
+     ↓
+Elevation Mapping
+     ↓
+Semantic Processing
+     ↓
+Adaptive Resolution
+     ↓
+2.5D Semantic Map
+     ↓
+Rendering
 ```
 
 ------------------------------------------------------------------------
 
-# Git Workflow
+## Planned Features
 
-Initialize the repository:
+### Point Cloud Processing
 
-``` powershell
-git init
-```
+-   [x] Binary point-cloud loading
+-   [x] Point statistics
+-   [x] Synthetic test-data generation
 
-Add files:
+### Spatial Mapping
 
-``` powershell
-git add .
-```
+-   [x] Spatial grid
+-   [x] Point-to-cell mapping
+-   [x] Average elevation
+-   [x] Average intensity
+-   [x] Point count
+-   [x] Minimum elevation
 
-Create the first commit:
+### Visualization
 
-``` powershell
-git commit -m "Initial LiDAR mapping engine"
-```
-
-Check repository status:
-
-``` powershell
-git status
-```
-
-------------------------------------------------------------------------
-
-# Roadmap
-
--   [x] CMake project
 -   [x] OpenGL initialization
--   [x] Point structure
--   [x] Point-cloud loader
--   [x] Point-cloud statistics
 -   [x] Point rendering
 -   [x] Camera controls
--   [x] Spatial grid
--   [x] Map cell aggregation
--   [x] Synthetic LiDAR generator
--   [ ] Robust map-cell representation
--   [ ] Variable-resolution spatial map
--   [ ] Terrain/elevation processing
--   [ ] Semantic classes
--   [ ] AI semantic pipeline
--   [ ] AI → map integration
--   [ ] Dynamic map updates
--   [ ] Large-scale LiDAR testing
+-   [x] Grid-derived visualization
+
+### AI / Semantic Pipeline
+
+-   [ ] Point-cloud preprocessing
+-   [ ] Ground / non-ground separation
+-   [ ] Semantic feature extraction
+-   [ ] Object / terrain classification
+-   [ ] Semantic labels
+-   [ ] Semantic map integration
+
+### Variable-Resolution 2.5D Mapping
+
+-   [ ] Multi-resolution spatial representation
+-   [ ] High-resolution local mapping
+-   [ ] Progressive resolution reduction with distance
+-   [ ] Elevation representation
+-   [ ] Semantic representation
+-   [ ] Map update strategy
+
+### Final Visualization
+
+-   [ ] Variable-resolution map rendering
+-   [ ] Semantic visualization
+-   [ ] Terrain/object visualization
 -   [ ] Performance optimization
--   [ ] Final visualization
--   [ ] Final SIH demonstration build
 
 ------------------------------------------------------------------------
 
-# License
+## License
 
-This project is currently being developed as part of the SIH 26'
-project.
+This project is currently developed as part of the SIH 26 project.
 
-License details can be added when the repository is finalized.
+License information will be added as the project is finalized.
