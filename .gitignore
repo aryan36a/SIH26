@@ -1,0 +1,62 @@
+# ==============================
+# Build directories
+# ==============================
+
+build/
+cmake-build-*/
+out/
+
+# ==============================
+# Compiled binaries
+# ==============================
+
+*.exe
+*.dll
+*.so
+*.a
+*.lib
+*.obj
+*.o
+
+# ==============================
+# CMake generated files
+# ==============================
+
+CMakeCache.txt
+CMakeFiles/
+cmake_install.cmake
+Makefile
+install_manifest.txt
+compile_commands.json
+
+# ==============================
+# IDE files
+# ==============================
+
+.vs/
+.vscode/
+.idea/
+
+*.suo
+*.user
+*.userosscache
+*.sln
+*.vcxproj
+*.vcxproj.filters
+
+# ==============================
+# Debug / Release output
+# ==============================
+
+Debug/
+Release/
+x64/
+x86/
+
+# ==============================
+# Temporary files
+# ==============================
+
+*.tmp
+*.log
+*.bak
