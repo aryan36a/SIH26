@@ -5,51 +5,35 @@
 
 #include <glm/glm.hpp>
 
-class Renderer
-{
+class Renderer {
 private:
+  unsigned int pointVBO;
+  unsigned int pointVAO;
 
-    unsigned int pointVBO;
-    unsigned int pointVAO;
+  unsigned int gridVBO;
+  unsigned int gridVAO;
 
-    unsigned int gridVBO;
-    unsigned int gridVAO;
+  unsigned int shaderProgram;
 
-    unsigned int shaderProgram;
+  float minIntensity;
+  float maxIntensity;
 
-    float minIntensity;
-    float maxIntensity;
+  unsigned int compileShader(unsigned int type, const char *source);
 
-    unsigned int compileShader(
-        unsigned int type,
-        const char* source
-    );
-
-    bool createShaderProgram();
+  bool createShaderProgram();
 
 public:
+  Renderer();
 
-    Renderer();
+  ~Renderer();
 
-    ~Renderer();
+  bool uploadPointCloud(const PointCloud &cloud);
 
-    bool uploadPointCloud(
-        const PointCloud& cloud
-    );
+  bool uploadGrid(const SpatialGrid &grid);
 
-    bool uploadGrid(
-        const SpatialGrid& grid
-    );
+  void render(const PointCloud &cloud, const glm::mat4 &view,
+              const glm::mat4 &projection);
 
-    void render(
-        const PointCloud& cloud,
-        const glm::mat4& view,
-        const glm::mat4& projection
-    );
-
-    void render(
-        const SpatialGrid& grid,
-        const glm::mat4& view,
-        const glm::mat4& projection
-    );
+  void render(const SpatialGrid &grid, const glm::mat4 &view,
+              const glm::mat4 &projection);
 };

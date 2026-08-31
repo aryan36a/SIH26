@@ -1,36 +1,35 @@
 #pragma once
 
-#include <vector>
 #include <cstddef>
 #include <string>
+#include <vector>
 
 #include "Point.h"
 
-class PointCloud
-{
+class PointCloud {
 private:
-    std::vector<Point> points;
+  std::vector<Point> points;
 
 public:
-    void addPoint(const Point& point);
+  void addPoint(const Point &point);
 
-    std::size_t size() const;
+  std::size_t size() const;
 
-    const Point& getPoint(std::size_t index) const;
+  const Point &getPoint(std::size_t index) const;
 
-    bool loadXYZ(const std::string& filename);
+  bool loadXYZ(const std::string &filename);
 
-    bool loadBIN(const std::string& filename);
-    
-    float getMinIntensity() const;
+  bool loadBIN(const std::string &filename);
 
-    float getMaxIntensity() const;
-    float getMinX() const;
-    float getMaxX() const;
+  float getMinIntensity() const;
 
-    float getMinY() const;
-    float getMaxY() const;
+  float getMaxIntensity() const;
+  float getMinX() const;
+  float getMaxX() const;
 
-    float getMinZ() const;
-    float getMaxZ() const;
+  float getMinY() const;
+  float getMaxY() const;
+
+  float getMinZ() const;
+  float getMaxZ() const;
 };

@@ -9,557 +9,312 @@
 #include <vector>
 
 Renderer::Renderer()
-    : pointVBO(0),
-      pointVAO(0),
-      gridVBO(0),
-      gridVAO(0),
-      shaderProgram(0),
-      minIntensity(0.0f),
-      maxIntensity(1.0f)
-{
-    glGenVertexArrays(1, &pointVAO);
-    glGenBuffers(1, &pointVBO);
+    : pointVBO(0), pointVAO(0), gridVBO(0), gridVAO(0), shaderProgram(0),
+      minIntensity(0.0f), maxIntensity(1.0f) {
+  glGenVertexArrays(1, &pointVAO);
+  glGenBuffers(1, &pointVBO);
 
-    glGenVertexArrays(1, &gridVAO);
-    glGenBuffers(1, &gridVBO);
+  glGenVertexArrays(1, &gridVAO);
+  glGenBuffers(1, &gridVBO);
 
-    createShaderProgram();
+  createShaderProgram();
 }
 
-Renderer::~Renderer()
-{
-    if (shaderProgram != 0)
-    {
-        glDeleteProgram(shaderProgram);
-    }
+Renderer::~Renderer() {
+  if (shaderProgram != 0) {
+    glDeleteProgram(shaderProgram);
+  }
 
-    glDeleteBuffers(1, &pointVBO);
-    glDeleteVertexArrays(1, &pointVAO);
+  glDeleteBuffers(1, &pointVBO);
+  glDeleteVertexArrays(1, &pointVAO);
 
-    glDeleteBuffers(1, &gridVBO);
-    glDeleteVertexArrays(1, &gridVAO);
+  glDeleteBuffers(1, &gridVBO);
+  glDeleteVertexArrays(1, &gridVAO);
 }
 
-unsigned int Renderer::compileShader(
-    unsigned int type,
-    const char* source)
-{
-    unsigned int shader =
-        glCreateShader(type);
+unsigned int Renderer::compileShader(unsigned int type, const char *source) {
+  unsigned int shader = glCreateShader(type);
 
-    glShaderSource(
-        shader,
-        1,
-        &source,
-        nullptr
-    );
+  glShaderSource(shader, 1, &source, nullptr);
 
-    glCompileShader(shader);
+  glCompileShader(shader);
 
-    int success = 0;
+  int success = 0;
 
-    glGetShaderiv(
-        shader,
-        GL_COMPILE_STATUS,
-        &success
-    );
+  glGetShaderiv(shader, GL_COMPILE_STATUS, &success);
 
-    if (!success)
-    {
-        char infoLog[512];
+  if (!success) {
+    char infoLog[512];
 
-        glGetShaderInfoLog(
-            shader,
-            sizeof(infoLog),
-            nullptr,
-            infoLog
-        );
+    glGetShaderInfoLog(shader, sizeof(infoLog), nullptr, infoLog);
 
-        std::cerr
-            << "Shader compilation failed:\n"
-            << infoLog
-            << '\n';
+    std::cerr << "Shader compilation failed:\n" << infoLog << '\n';
 
-        glDeleteShader(shader);
+    glDeleteShader(shader);
 
-        return 0;
-    }
+    return 0;
+  }
 
-    return shader;
+  return shader;
 }
 
-bool Renderer::createShaderProgram()
-{
-    std::ifstream vertexFile(
-        "shaders/point.vert"
-    );
+bool Renderer::createShaderProgram() {
+  std::ifstream vertexFile("shaders/point.vert");
 
-    std::ifstream fragmentFile(
-        "shaders/point.frag"
-    );
+  std::ifstream fragmentFile("shaders/point.frag");
 
-    if (!vertexFile.is_open())
-    {
-        std::cerr
-            << "Failed to open vertex shader\n";
+  if (!vertexFile.is_open()) {
+    std::cerr << "Failed to open vertex shader\n";
 
-        return false;
-    }
+    return false;
+  }
 
-    if (!fragmentFile.is_open())
-    {
-        std::cerr
-            << "Failed to open fragment shader\n";
+  if (!fragmentFile.is_open()) {
+    std::cerr << "Failed to open fragment shader\n";
 
-        return false;
-    }
+    return false;
+  }
 
-    std::stringstream vertexStream;
-    std::stringstream fragmentStream;
+  std::stringstream vertexStream;
+  std::stringstream fragmentStream;
 
-    vertexStream << vertexFile.rdbuf();
-    fragmentStream << fragmentFile.rdbuf();
+  vertexStream << vertexFile.rdbuf();
+  fragmentStream << fragmentFile.rdbuf();
 
-    std::string vertexSource =
-        vertexStream.str();
+  std::string vertexSource = vertexStream.str();
 
-    std::string fragmentSource =
-        fragmentStream.str();
+  std::string fragmentSource = fragmentStream.str();
 
-    unsigned int vertexShader =
-        compileShader(
-            GL_VERTEX_SHADER,
-            vertexSource.c_str()
-        );
+  unsigned int vertexShader =
+      compileShader(GL_VERTEX_SHADER, vertexSource.c_str());
 
-    if (vertexShader == 0)
-    {
-        return false;
-    }
+  if (vertexShader == 0) {
+    return false;
+  }
 
-    unsigned int fragmentShader =
-        compileShader(
-            GL_FRAGMENT_SHADER,
-            fragmentSource.c_str()
-        );
+  unsigned int fragmentShader =
+      compileShader(GL_FRAGMENT_SHADER, fragmentSource.c_str());
 
-    if (fragmentShader == 0)
-    {
-        glDeleteShader(vertexShader);
+  if (fragmentShader == 0) {
+    glDeleteShader(vertexShader);
 
-        return false;
-    }
+    return false;
+  }
 
-    shaderProgram =
-        glCreateProgram();
+  shaderProgram = glCreateProgram();
 
-    glAttachShader(
-        shaderProgram,
-        vertexShader
-    );
+  glAttachShader(shaderProgram, vertexShader);
 
-    glAttachShader(
-        shaderProgram,
-        fragmentShader
-    );
+  glAttachShader(shaderProgram, fragmentShader);
 
-    glLinkProgram(shaderProgram);
+  glLinkProgram(shaderProgram);
 
-    int success = 0;
+  int success = 0;
 
-    glGetProgramiv(
-        shaderProgram,
-        GL_LINK_STATUS,
-        &success
-    );
+  glGetProgramiv(shaderProgram, GL_LINK_STATUS, &success);
 
-    if (!success)
-    {
-        char infoLog[512];
+  if (!success) {
+    char infoLog[512];
 
-        glGetProgramInfoLog(
-            shaderProgram,
-            sizeof(infoLog),
-            nullptr,
-            infoLog
-        );
+    glGetProgramInfoLog(shaderProgram, sizeof(infoLog), nullptr, infoLog);
 
-        std::cerr
-            << "Shader linking failed:\n"
-            << infoLog
-            << '\n';
-
-        glDeleteShader(vertexShader);
-        glDeleteShader(fragmentShader);
-
-        glDeleteProgram(shaderProgram);
-
-        shaderProgram = 0;
-
-        return false;
-    }
+    std::cerr << "Shader linking failed:\n" << infoLog << '\n';
 
     glDeleteShader(vertexShader);
     glDeleteShader(fragmentShader);
 
-    return true;
+    glDeleteProgram(shaderProgram);
+
+    shaderProgram = 0;
+
+    return false;
+  }
+
+  glDeleteShader(vertexShader);
+  glDeleteShader(fragmentShader);
+
+  return true;
 }
 
-bool Renderer::uploadPointCloud(
-    const PointCloud& cloud)
-{
-    if (cloud.size() == 0)
-    {
-        return false;
-    }
+bool Renderer::uploadPointCloud(const PointCloud &cloud) {
+  if (cloud.size() == 0) {
+    return false;
+  }
 
-    minIntensity =
-        cloud.getMinIntensity();
+  minIntensity = cloud.getMinIntensity();
 
-    maxIntensity =
-        cloud.getMaxIntensity();
+  maxIntensity = cloud.getMaxIntensity();
 
-    glBindVertexArray(pointVAO);
+  glBindVertexArray(pointVAO);
 
-    glBindBuffer(
-        GL_ARRAY_BUFFER,
-        pointVBO
-    );
+  glBindBuffer(GL_ARRAY_BUFFER, pointVBO);
 
-    glBufferData(
-        GL_ARRAY_BUFFER,
-        cloud.size() * sizeof(Point),
-        nullptr,
-        GL_STATIC_DRAW
-    );
+  glBufferData(GL_ARRAY_BUFFER, cloud.size() * sizeof(Point), nullptr,
+               GL_STATIC_DRAW);
 
-    for (std::size_t i = 0;
-         i < cloud.size();
-         ++i)
-    {
-        const Point& point =
-            cloud.getPoint(i);
+  for (std::size_t i = 0; i < cloud.size(); ++i) {
+    const Point &point = cloud.getPoint(i);
 
-        glBufferSubData(
-            GL_ARRAY_BUFFER,
-            i * sizeof(Point),
-            sizeof(Point),
-            &point
-        );
-    }
+    glBufferSubData(GL_ARRAY_BUFFER, i * sizeof(Point), sizeof(Point), &point);
+  }
 
-    // Position
-    glVertexAttribPointer(
-        0,
-        3,
-        GL_FLOAT,
-        GL_FALSE,
-        sizeof(Point),
-        reinterpret_cast<void*>(0)
-    );
+  // Position
+  glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, sizeof(Point),
+                        reinterpret_cast<void *>(0));
 
-    glEnableVertexAttribArray(0);
+  glEnableVertexAttribArray(0);
 
-    // Intensity
-    glVertexAttribPointer(
-        1,
-        1,
-        GL_FLOAT,
-        GL_FALSE,
-        sizeof(Point),
-        reinterpret_cast<void*>(
-            sizeof(float) * 3
-        )
-    );
+  // Intensity
+  glVertexAttribPointer(1, 1, GL_FLOAT, GL_FALSE, sizeof(Point),
+                        reinterpret_cast<void *>(sizeof(float) * 3));
 
-    glEnableVertexAttribArray(1);
+  glEnableVertexAttribArray(1);
 
-    glBindBuffer(
-        GL_ARRAY_BUFFER,
-        0
-    );
+  glBindBuffer(GL_ARRAY_BUFFER, 0);
 
-    glBindVertexArray(0);
+  glBindVertexArray(0);
 
-    return true;
+  return true;
 }
 
-bool Renderer::uploadGrid(
-    const SpatialGrid& grid)
-{
-    if (grid.getWidth() == 0 ||
-        grid.getHeight() == 0)
-    {
-        return false;
+bool Renderer::uploadGrid(const SpatialGrid &grid) {
+  if (grid.getWidth() == 0 || grid.getHeight() == 0) {
+    return false;
+  }
+
+  std::vector<Point> gridPoints;
+
+  for (std::size_t y = 0; y < grid.getHeight(); ++y) {
+    for (std::size_t x = 0; x < grid.getWidth(); ++x) {
+      if (!grid.hasData(x, y)) {
+        continue;
+      }
+
+      float worldX =
+          grid.getMinX() + (static_cast<float>(x) + 0.5f) * grid.getCellSize();
+
+      float worldY =
+          grid.getMinY() + (static_cast<float>(y) + 0.5f) * grid.getCellSize();
+
+      float elevation = grid.getElevation(x, y);
+
+      float intensity = grid.getIntensity(x, y);
+
+      Point point{worldX, worldY, elevation, intensity};
+
+      gridPoints.push_back(point);
     }
+  }
 
-    std::vector<Point> gridPoints;
+  if (gridPoints.empty()) {
+    return false;
+  }
 
-    for (std::size_t y = 0;
-         y < grid.getHeight();
-         ++y)
-    {
-        for (std::size_t x = 0;
-             x < grid.getWidth();
-             ++x)
-        {
-            if (!grid.hasData(x, y))
-            {
-                continue;
-            }
+  glBindVertexArray(gridVAO);
 
-            float worldX =
-                grid.getMinX() +
-                (
-                    static_cast<float>(x) +
-                    0.5f
-                ) *
-                grid.getCellSize();
+  glBindBuffer(GL_ARRAY_BUFFER, gridVBO);
 
-            float worldY =
-                grid.getMinY() +
-                (
-                    static_cast<float>(y) +
-                    0.5f
-                ) *
-                grid.getCellSize();
+  glBufferData(GL_ARRAY_BUFFER, gridPoints.size() * sizeof(Point),
+               gridPoints.data(), GL_STATIC_DRAW);
 
-            float elevation =
-                grid.getElevation(x, y);
+  // Position
+  glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, sizeof(Point),
+                        reinterpret_cast<void *>(0));
 
-            float intensity =
-                grid.getIntensity(x, y);
+  glEnableVertexAttribArray(0);
 
-            Point point{
-                worldX,
-                worldY,
-                elevation,
-                intensity
-            };
+  // Intensity
+  glVertexAttribPointer(1, 1, GL_FLOAT, GL_FALSE, sizeof(Point),
+                        reinterpret_cast<void *>(sizeof(float) * 3));
 
-            gridPoints.push_back(point);
-        }
-    }
+  glEnableVertexAttribArray(1);
 
-    if (gridPoints.empty())
-    {
-        return false;
-    }
+  glBindBuffer(GL_ARRAY_BUFFER, 0);
 
-    glBindVertexArray(gridVAO);
+  glBindVertexArray(0);
 
-    glBindBuffer(
-        GL_ARRAY_BUFFER,
-        gridVBO
-    );
-
-    glBufferData(
-        GL_ARRAY_BUFFER,
-        gridPoints.size() * sizeof(Point),
-        gridPoints.data(),
-        GL_STATIC_DRAW
-    );
-
-    // Position
-    glVertexAttribPointer(
-        0,
-        3,
-        GL_FLOAT,
-        GL_FALSE,
-        sizeof(Point),
-        reinterpret_cast<void*>(0)
-    );
-
-    glEnableVertexAttribArray(0);
-
-    // Intensity
-    glVertexAttribPointer(
-        1,
-        1,
-        GL_FLOAT,
-        GL_FALSE,
-        sizeof(Point),
-        reinterpret_cast<void*>(
-            sizeof(float) * 3
-        )
-    );
-
-    glEnableVertexAttribArray(1);
-
-    glBindBuffer(
-        GL_ARRAY_BUFFER,
-        0
-    );
-
-    glBindVertexArray(0);
-
-    return true;
+  return true;
 }
 
-void Renderer::render(
-    const PointCloud& cloud,
-    const glm::mat4& view,
-    const glm::mat4& projection)
-{
-    if (cloud.size() == 0 ||
-        shaderProgram == 0)
-    {
-        return;
-    }
+void Renderer::render(const PointCloud &cloud, const glm::mat4 &view,
+                      const glm::mat4 &projection) {
+  if (cloud.size() == 0 || shaderProgram == 0) {
+    return;
+  }
 
-    glUseProgram(shaderProgram);
+  glUseProgram(shaderProgram);
 
-    int viewLocation =
-        glGetUniformLocation(
-            shaderProgram,
-            "uView"
-        );
+  int viewLocation = glGetUniformLocation(shaderProgram, "uView");
 
-    int projectionLocation =
-        glGetUniformLocation(
-            shaderProgram,
-            "uProjection"
-        );
+  int projectionLocation = glGetUniformLocation(shaderProgram, "uProjection");
 
-    int minIntensityLocation =
-        glGetUniformLocation(
-            shaderProgram,
-            "uMinIntensity"
-        );
+  int minIntensityLocation =
+      glGetUniformLocation(shaderProgram, "uMinIntensity");
 
-    int maxIntensityLocation =
-        glGetUniformLocation(
-            shaderProgram,
-            "uMaxIntensity"
-        );
+  int maxIntensityLocation =
+      glGetUniformLocation(shaderProgram, "uMaxIntensity");
 
-    glUniformMatrix4fv(
-        viewLocation,
-        1,
-        GL_FALSE,
-        glm::value_ptr(view)
-    );
+  glUniformMatrix4fv(viewLocation, 1, GL_FALSE, glm::value_ptr(view));
 
-    glUniformMatrix4fv(
-        projectionLocation,
-        1,
-        GL_FALSE,
-        glm::value_ptr(projection)
-    );
+  glUniformMatrix4fv(projectionLocation, 1, GL_FALSE,
+                     glm::value_ptr(projection));
 
-    glUniform1f(
-        minIntensityLocation,
-        minIntensity
-    );
+  glUniform1f(minIntensityLocation, minIntensity);
 
-    glUniform1f(
-        maxIntensityLocation,
-        maxIntensity
-    );
+  glUniform1f(maxIntensityLocation, maxIntensity);
 
-    glBindVertexArray(pointVAO);
+  glBindVertexArray(pointVAO);
 
-    glDrawArrays(
-        GL_POINTS,
-        0,
-        static_cast<int>(cloud.size())
-    );
+  glDrawArrays(GL_POINTS, 0, static_cast<int>(cloud.size()));
 
-    glBindVertexArray(0);
+  glBindVertexArray(0);
 }
 
-void Renderer::render(
-    const SpatialGrid& grid,
-    const glm::mat4& view,
-    const glm::mat4& projection)
-{
-    if (grid.getWidth() == 0 ||
-        grid.getHeight() == 0 ||
-        shaderProgram == 0)
-    {
-        return;
+void Renderer::render(const SpatialGrid &grid, const glm::mat4 &view,
+                      const glm::mat4 &projection) {
+  if (grid.getWidth() == 0 || grid.getHeight() == 0 || shaderProgram == 0) {
+    return;
+  }
+
+  glUseProgram(shaderProgram);
+
+  int viewLocation = glGetUniformLocation(shaderProgram, "uView");
+
+  int projectionLocation = glGetUniformLocation(shaderProgram, "uProjection");
+
+  int minIntensityLocation =
+      glGetUniformLocation(shaderProgram, "uMinIntensity");
+
+  int maxIntensityLocation =
+      glGetUniformLocation(shaderProgram, "uMaxIntensity");
+
+  glUniformMatrix4fv(viewLocation, 1, GL_FALSE, glm::value_ptr(view));
+
+  glUniformMatrix4fv(projectionLocation, 1, GL_FALSE,
+                     glm::value_ptr(projection));
+
+  glUniform1f(minIntensityLocation, minIntensity);
+
+  glUniform1f(maxIntensityLocation, maxIntensity);
+
+  std::size_t populatedCells = 0;
+
+  for (std::size_t y = 0; y < grid.getHeight(); ++y) {
+    for (std::size_t x = 0; x < grid.getWidth(); ++x) {
+      if (grid.hasData(x, y)) {
+        ++populatedCells;
+      }
     }
+  }
 
-    glUseProgram(shaderProgram);
-
-    int viewLocation =
-        glGetUniformLocation(
-            shaderProgram,
-            "uView"
-        );
-
-    int projectionLocation =
-        glGetUniformLocation(
-            shaderProgram,
-            "uProjection"
-        );
-
-    int minIntensityLocation =
-        glGetUniformLocation(
-            shaderProgram,
-            "uMinIntensity"
-        );
-
-    int maxIntensityLocation =
-        glGetUniformLocation(
-            shaderProgram,
-            "uMaxIntensity"
-        );
-
-    glUniformMatrix4fv(
-        viewLocation,
-        1,
-        GL_FALSE,
-        glm::value_ptr(view)
-    );
-
-    glUniformMatrix4fv(
-        projectionLocation,
-        1,
-        GL_FALSE,
-        glm::value_ptr(projection)
-    );
-
-    glUniform1f(
-        minIntensityLocation,
-        minIntensity
-    );
-
-    glUniform1f(
-        maxIntensityLocation,
-        maxIntensity
-    );
-
-    std::size_t populatedCells = 0;
-
-    for (std::size_t y = 0;
-         y < grid.getHeight();
-         ++y)
-    {
-        for (std::size_t x = 0;
-             x < grid.getWidth();
-             ++x)
-        {
-            if (grid.hasData(x, y))
-            {
-                ++populatedCells;
-            }
-        }
-    }
-
-    if (populatedCells == 0)
-    {
-        glBindVertexArray(0);
-        return;
-    }
-
-    glBindVertexArray(gridVAO);
-
-    glDrawArrays(
-        GL_POINTS,
-        0,
-        static_cast<int>(populatedCells)
-    );
-
+  if (populatedCells == 0) {
     glBindVertexArray(0);
+    return;
+  }
+
+  glBindVertexArray(gridVAO);
+
+  glDrawArrays(GL_POINTS, 0, static_cast<int>(populatedCells));
+
+  glBindVertexArray(0);
 }

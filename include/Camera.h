@@ -2,43 +2,34 @@
 
 #include <glm/glm.hpp>
 
-class Camera
-{
+class Camera {
 public:
+  Camera();
 
-    Camera();
+  glm::mat4 getViewMatrix() const;
 
-    glm::mat4 getViewMatrix() const;
+  void processKeyboard(int direction, float deltaTime);
 
-    void processKeyboard(
-        int direction,
-        float deltaTime
-    );
+  void processMouse(float xOffset, float yOffset);
 
-    void processMouse(
-        float xOffset,
-        float yOffset
-    );
-
-    glm::vec3 getPosition() const;
+  glm::vec3 getPosition() const;
 
 private:
+  glm::vec3 position;
 
-    glm::vec3 position;
+  float yaw;
+  float pitch;
 
-    float yaw;
-    float pitch;
+  float movementSpeed;
+  float mouseSensitivity;
 
-    float movementSpeed;
-    float mouseSensitivity;
+  glm::vec3 front;
+  glm::vec3 up;
+  glm::vec3 right;
 
-    glm::vec3 front;
-    glm::vec3 up;
-    glm::vec3 right;
+  bool firstMouse;
+  double lastMouseX;
+  double lastMouseY;
 
-    bool firstMouse;
-    double lastMouseX;
-    double lastMouseY;
-
-    void updateVectors();
+  void updateVectors();
 };
