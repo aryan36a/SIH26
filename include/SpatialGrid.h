@@ -30,6 +30,8 @@ public:
 
   float getIntensity(std::size_t x, std::size_t y) const;
 
+  float getHeightVariation(std::size_t x, std::size_t y) const;
+
 private:
   float minX;
   float maxX;

@@ -1,5 +1,6 @@
 #pragma once
 
+#include "AdaptiveSpatialGrid.h"
 #include "PointCloud.h"
 #include "SpatialGrid.h"
 
@@ -7,33 +8,109 @@
 
 class Renderer {
 private:
-  unsigned int pointVBO;
-  unsigned int pointVAO;
+    // --------------------------------------------------
+    // Raw point cloud
+    // --------------------------------------------------
 
-  unsigned int gridVBO;
-  unsigned int gridVAO;
+    unsigned int pointVBO;
+    unsigned int pointVAO;
 
-  unsigned int shaderProgram;
+    // --------------------------------------------------
+    // Uniform grid
+    // --------------------------------------------------
 
-  float minIntensity;
-  float maxIntensity;
+    unsigned int gridVBO;
+    unsigned int gridVAO;
 
-  unsigned int compileShader(unsigned int type, const char *source);
+    // --------------------------------------------------
+    // Adaptive 2.5D mesh
+    // --------------------------------------------------
 
-  bool createShaderProgram();
+    unsigned int adaptiveVBO;
+    unsigned int adaptiveVAO;
+    unsigned int adaptiveEBO;
+
+    unsigned int adaptiveIndexCount;
+
+    // --------------------------------------------------
+    // Shader programs
+    // --------------------------------------------------
+
+    unsigned int shaderProgram;
+    unsigned int adaptiveShaderProgram;
+
+    // --------------------------------------------------
+    // Point/grid intensity range
+    // --------------------------------------------------
+
+    float minIntensity;
+    float maxIntensity;
+
+    // --------------------------------------------------
+    // Adaptive elevation range
+    // --------------------------------------------------
+
+    float minElevation;
+    float maxElevation;
+
+    // --------------------------------------------------
+    // Shader utilities
+    // --------------------------------------------------
+
+    unsigned int compileShader(
+        unsigned int type,
+        const char* source
+    );
+
+    bool createShaderProgram();
+
+    bool createAdaptiveShaderProgram();
+
+    void setCommonUniforms(
+        unsigned int program,
+        const glm::mat4& view,
+        const glm::mat4& projection
+    );
 
 public:
-  Renderer();
+    Renderer();
 
-  ~Renderer();
+    ~Renderer();
 
-  bool uploadPointCloud(const PointCloud &cloud);
+    // --------------------------------------------------
+    // GPU upload
+    // --------------------------------------------------
 
-  bool uploadGrid(const SpatialGrid &grid);
+    bool uploadPointCloud(
+        const PointCloud& cloud
+    );
 
-  void render(const PointCloud &cloud, const glm::mat4 &view,
-              const glm::mat4 &projection);
+    bool uploadGrid(
+        const SpatialGrid& grid
+    );
 
-  void render(const SpatialGrid &grid, const glm::mat4 &view,
-              const glm::mat4 &projection);
+    bool uploadAdaptiveGrid(
+        const AdaptiveSpatialGrid& grid
+    );
+
+    // --------------------------------------------------
+    // Rendering
+    // --------------------------------------------------
+
+    void render(
+        const PointCloud& cloud,
+        const glm::mat4& view,
+        const glm::mat4& projection
+    );
+
+    void render(
+        const SpatialGrid& grid,
+        const glm::mat4& view,
+        const glm::mat4& projection
+    );
+
+    void renderAdaptive(
+        const glm::mat4& view,
+        const glm::mat4& projection
+    );
 };
