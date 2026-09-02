@@ -1,57 +1,74 @@
 #include "AdaptiveCellMesh.h"
 
+
 void AdaptiveCellMesh::build(
-    const AdaptiveSpatialGrid& grid)
+    const AdaptiveSpatialGrid& grid
+)
 {
     vertices.clear();
     indices.clear();
 
-    const std::vector<AdaptiveSpatialGrid::RenderCell>
-        renderCells = grid.getRenderCells();
+    const std::vector<
+        AdaptiveSpatialGrid::RenderCell
+    > renderCells =
+        grid.getRenderCells();
 
     /*
-     * Every adaptive cell becomes one quad.
+     * --------------------------------------------------------
+     * Reserve
+     * --------------------------------------------------------
      *
-     * Four vertices:
-     *
-     * (x0,y0) -------- (x1,y0)
-     *    |                |
-     *    |      CELL      |
-     *    |                |
-     * (x0,y1) -------- (x1,y1)
-     *
-     * The elevation is constant across
-     * the cell for this first 2.5D mesh.
+     * Each render cell is currently represented by
+     * one independent quad.
      */
 
-    vertices.reserve(renderCells.size() * 4);
-    indices.reserve(renderCells.size() * 6);
+    vertices.reserve(
+        renderCells.size() * 4
+    );
+
+    indices.reserve(
+        renderCells.size() * 6
+    );
+
+
+    /*
+     * --------------------------------------------------------
+     * Generate geometry
+     * --------------------------------------------------------
+     */
 
     for (const auto& cell : renderCells)
     {
-        const float halfSize =
-            cell.resolution * 0.5f;
+        /*
+         * RenderCell owns the authoritative world-space
+         * bounds.
+         */
 
         const float x0 =
-            cell.x - halfSize;
+            cell.minX;
 
         const float x1 =
-            cell.x + halfSize;
+            cell.maxX;
 
         const float y0 =
-            cell.y - halfSize;
+            cell.minY;
 
         const float y1 =
-            cell.y + halfSize;
+            cell.maxY;
+
 
         const unsigned int baseIndex =
             static_cast<unsigned int>(
                 vertices.size()
             );
 
+
         /*
+         * ----------------------------------------------------
          * Bottom-left
+         * ----------------------------------------------------
          */
+
         vertices.push_back(
             Vertex{
                 x0,
@@ -61,9 +78,13 @@ void AdaptiveCellMesh::build(
             }
         );
 
+
         /*
+         * ----------------------------------------------------
          * Bottom-right
+         * ----------------------------------------------------
          */
+
         vertices.push_back(
             Vertex{
                 x1,
@@ -73,9 +94,13 @@ void AdaptiveCellMesh::build(
             }
         );
 
+
         /*
+         * ----------------------------------------------------
          * Top-right
+         * ----------------------------------------------------
          */
+
         vertices.push_back(
             Vertex{
                 x1,
@@ -85,9 +110,13 @@ void AdaptiveCellMesh::build(
             }
         );
 
+
         /*
+         * ----------------------------------------------------
          * Top-left
+         * ----------------------------------------------------
          */
+
         vertices.push_back(
             Vertex{
                 x0,
@@ -97,21 +126,52 @@ void AdaptiveCellMesh::build(
             }
         );
 
-        /*
-         * Triangle 1
-         */
-        indices.push_back(baseIndex + 0);
-        indices.push_back(baseIndex + 1);
-        indices.push_back(baseIndex + 2);
 
         /*
-         * Triangle 2
+         * ----------------------------------------------------
+         * Triangle 1
+         * ----------------------------------------------------
          */
-        indices.push_back(baseIndex + 0);
-        indices.push_back(baseIndex + 2);
-        indices.push_back(baseIndex + 3);
+
+        indices.push_back(
+            baseIndex + 0
+        );
+
+        indices.push_back(
+            baseIndex + 1
+        );
+
+        indices.push_back(
+            baseIndex + 2
+        );
+
+
+        /*
+         * ----------------------------------------------------
+         * Triangle 2
+         * ----------------------------------------------------
+         */
+
+        indices.push_back(
+            baseIndex + 0
+        );
+
+        indices.push_back(
+            baseIndex + 2
+        );
+
+        indices.push_back(
+            baseIndex + 3
+        );
     }
 }
+
+
+/*
+ * ============================================================
+ * Accessors
+ * ============================================================
+ */
 
 const std::vector<AdaptiveCellMesh::Vertex>&
 AdaptiveCellMesh::getVertices() const
@@ -119,16 +179,19 @@ AdaptiveCellMesh::getVertices() const
     return vertices;
 }
 
+
 const std::vector<unsigned int>&
 AdaptiveCellMesh::getIndices() const
 {
     return indices;
 }
 
+
 std::size_t AdaptiveCellMesh::getVertexCount() const
 {
     return vertices.size();
 }
+
 
 std::size_t AdaptiveCellMesh::getIndexCount() const
 {

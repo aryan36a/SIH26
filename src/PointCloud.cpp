@@ -4,6 +4,11 @@
 
 void PointCloud::addPoint(const Point &point) { points.push_back(point); }
 
+void PointCloud::clear()
+{
+    points.clear();
+}
+
 std::size_t PointCloud::size() const { return points.size(); }
 
 const Point &PointCloud::getPoint(std::size_t index) const {

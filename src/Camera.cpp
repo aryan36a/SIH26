@@ -46,7 +46,7 @@ void Camera::processMouse(float xOffset, float yOffset) {
   xOffset *= mouseSensitivity;
   yOffset *= mouseSensitivity;
 
-  yaw += xOffset;
+  yaw -= xOffset;
   pitch += yOffset;
 
   if (pitch > 89.0f) {
@@ -63,17 +63,29 @@ void Camera::processMouse(float xOffset, float yOffset) {
 glm::vec3 Camera::getPosition() const { return position; }
 
 void Camera::updateVectors() {
-  glm::vec3 direction;
+    glm::vec3 direction;
 
-  direction.x = std::cos(glm::radians(yaw)) * std::cos(glm::radians(pitch));
+    direction.x =
+        std::cos(glm::radians(yaw)) *
+        std::cos(glm::radians(pitch));
 
-  direction.y = std::sin(glm::radians(pitch));
+    direction.y =
+        std::sin(glm::radians(yaw)) *
+        std::cos(glm::radians(pitch));
 
-  direction.z = std::sin(glm::radians(yaw)) * std::cos(glm::radians(pitch));
+    direction.z =
+        std::sin(glm::radians(pitch));
 
-  front = glm::normalize(direction);
+    front = glm::normalize(direction);
 
-  right = glm::normalize(glm::cross(front, glm::vec3(0.0f, 1.0f, 0.0f)));
+    right = glm::normalize(
+        glm::cross(
+            front,
+            glm::vec3(0.0f, 0.0f, 1.0f)
+        )
+    );
 
-  up = glm::normalize(glm::cross(right, front));
+    up = glm::normalize(
+        glm::cross(right, front)
+    );
 }

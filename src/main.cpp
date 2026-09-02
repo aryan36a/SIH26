@@ -488,41 +488,107 @@ int main()
                 0.1f,
                 200.0f
             );
+/*
+ * --------------------------------------------------
+ * Render
+ * --------------------------------------------------
+ */
 
-        /*
-         * --------------------------------------------------
-         * Render
-         * --------------------------------------------------
-         */
+glClearColor(
+    0.03f,
+    0.03f,
+    0.03f,
+    1.0f
+);
 
-        glClearColor(
-            0.03f,
-            0.03f,
-            0.03f,
-            1.0f
-        );
+glClear(
+    GL_COLOR_BUFFER_BIT |
+    GL_DEPTH_BUFFER_BIT
+);
 
-        glClear(
-            GL_COLOR_BUFFER_BIT |
-            GL_DEPTH_BUFFER_BIT
-        );
+/*
+ * --------------------------------------------------
+ * Visualization
+ * --------------------------------------------------
+ *
+ * 0 = raw LiDAR point cloud
+ * 1 = adaptive 2.5D mesh
+ */
 
-        /*
-         * THIS is now the important call.
-         *
-         * We are rendering the adaptive
-         * 2.5D mesh rather than points.
-         */
-        renderer.renderAdaptive(
-            view,
-            projection
-        );
+static int renderMode = 0;
 
-        glfwSwapBuffers(
-            window
-        );
+/*
+ * --------------------------------------------------
+ * Mode switching
+ * --------------------------------------------------
+ */
 
-        glfwPollEvents();
+static bool key1WasPressed = false;
+static bool key2WasPressed = false;
+
+const bool key1Pressed =
+    glfwGetKey(
+        window,
+        GLFW_KEY_1
+    ) == GLFW_PRESS;
+
+const bool key2Pressed =
+    glfwGetKey(
+        window,
+        GLFW_KEY_2
+    ) == GLFW_PRESS;
+
+if (key1Pressed &&
+    !key1WasPressed)
+{
+    renderMode = 0;
+
+    std::cout
+        << "Render mode: Raw LiDAR\n";
+}
+
+if (key2Pressed &&
+    !key2WasPressed)
+{
+    renderMode = 1;
+
+    std::cout
+        << "Render mode: Adaptive 2.5D\n";
+}
+
+key1WasPressed =
+    key1Pressed;
+
+key2WasPressed =
+    key2Pressed;
+
+/*
+ * --------------------------------------------------
+ * Render selected representation
+ * --------------------------------------------------
+ */
+
+if (renderMode == 0)
+{
+    renderer.render(
+        cloud,
+        view,
+        projection
+    );
+}
+else
+{
+    renderer.renderAdaptive(
+        view,
+        projection
+    );
+}
+
+glfwSwapBuffers(
+    window
+);
+
+glfwPollEvents();
     }
 
     glfwDestroyWindow(

@@ -44,6 +44,7 @@ add_executable(SIH26
     # --------------------------------------------------------
 
     src/PointCloud.cpp
+    src/SemanticKITTI.cpp
 
     # --------------------------------------------------------
     # Map representation
@@ -148,6 +149,7 @@ add_executable(AdaptiveSpatialGridTest
     test/AdaptiveSpatialGridTest.cpp
 
     src/AdaptiveSpatialGrid.cpp
+    src/AdaptiveCellMesh.cpp
     src/ResolutionProfile.cpp
     src/MapCell.cpp
     src/PointCloud.cpp
@@ -158,22 +160,114 @@ target_include_directories(AdaptiveSpatialGridTest PRIVATE
 )
 
 # ============================================================
+# AdaptiveCellMesh tests
+# ============================================================
+
+add_executable(AdaptiveCellMeshTest
+
+    test/AdaptiveCellMeshTest.cpp
+
+    src/AdaptiveCellMesh.cpp
+    src/AdaptiveSpatialGrid.cpp
+    src/ResolutionProfile.cpp
+    src/MapCell.cpp
+    src/PointCloud.cpp
+)
+
+target_include_directories(AdaptiveCellMeshTest PRIVATE
+    include
+)
+
+# ============================================================
+# Adaptive geometry tests
+# ============================================================
+
+add_executable(AdaptiveGeometryTest
+
+    test/AdaptiveGeometryTest.cpp
+
+    src/AdaptiveSpatialGrid.cpp
+    src/ResolutionProfile.cpp
+    src/MapCell.cpp
+    src/PointCloud.cpp
+)
+
+target_include_directories(AdaptiveGeometryTest PRIVATE
+    include
+)
+
+# ============================================================
+# SemanticKITTI reader tests
+# ============================================================
+
+add_executable(SemanticKITTIReaderTest
+
+    test/SemanticKITTIReaderTest.cpp
+
+    src/SemanticKITTI.cpp
+    src/PointCloud.cpp
+)
+
+target_include_directories(SemanticKITTIReaderTest PRIVATE
+    include
+)
+
+# ============================================================
 # CTest integration
 # ============================================================
 
 enable_testing()
+
+# ------------------------------------------------------------
+# SpatialGrid
+# ------------------------------------------------------------
 
 add_test(
     NAME SpatialGridTest
     COMMAND SpatialGridTest
 )
 
+# ------------------------------------------------------------
+# ResolutionProfile
+# ------------------------------------------------------------
+
 add_test(
     NAME ResolutionProfileTest
     COMMAND ResolutionProfileTest
 )
 
+# ------------------------------------------------------------
+# AdaptiveSpatialGrid
+# ------------------------------------------------------------
+
 add_test(
     NAME AdaptiveSpatialGridTest
     COMMAND AdaptiveSpatialGridTest
+)
+
+# ------------------------------------------------------------
+# AdaptiveCellMesh
+# ------------------------------------------------------------
+
+add_test(
+    NAME AdaptiveCellMeshTest
+    COMMAND AdaptiveCellMeshTest
+)
+
+# ------------------------------------------------------------
+# Adaptive geometry
+# ------------------------------------------------------------
+
+add_test(
+    NAME AdaptiveGeometryTest
+    COMMAND AdaptiveGeometryTest
+)
+
+# ------------------------------------------------------------
+# SemanticKITTI
+# ------------------------------------------------------------
+
+add_test(
+    NAME SemanticKITTIReaderTest
+    COMMAND SemanticKITTIReaderTest
 )

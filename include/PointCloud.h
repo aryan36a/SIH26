@@ -11,6 +11,7 @@ private:
   std::vector<Point> points;
 
 public:
+  void clear();
   void addPoint(const Point &point);
 
   std::size_t size() const;

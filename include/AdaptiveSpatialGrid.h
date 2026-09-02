@@ -1,63 +1,140 @@
 #pragma once
 
-#include <cstddef>
-#include <unordered_map>
-#include <vector>
-
 #include "MapCell.h"
 #include "PointCloud.h"
 #include "ResolutionProfile.h"
 
-class AdaptiveSpatialGrid {
+#include <array>
+#include <cstddef>
+#include <unordered_map>
+#include <vector>
+
+struct AdaptiveCell
+{
+    float elevation = 0.0f;
+    float intensity = 0.0f;
+
+    std::size_t pointCount = 0;
+
+    float elevationSum = 0.0f;
+
+    float minimumElevation = 0.0f;
+    float maximumElevation = 0.0f;
+
+    float resolution = 0.0f;
+
+    int band = 0;
+
+    std::array<int, 6> semanticEvidence{};
+
+    SemanticClass semanticClass =
+        SemanticClass::Unknown;
+
+    float semanticConfidence = 0.0f;
+};
+
+
+class AdaptiveSpatialGrid
+{
 public:
 
-    /*
-     * Unique identity of an adaptive cell.
-     *
-     * band:
-     *     resolution region
-     *
-     * x/y:
-     *     integer cell coordinates within that
-     *     resolution system
-     */
-    struct CellKey {
-
-        int band;
+    struct CellKey
+    {
         int x;
         int y;
+        int band;
 
-        bool operator==(const CellKey &other) const {
-            return band == other.band &&
-                   x == other.x &&
-                   y == other.y;
+        bool operator==(const CellKey& other) const
+        {
+            return x == other.x &&
+                   y == other.y &&
+                   band == other.band;
         }
     };
 
-    /*
-     * Data required by the renderer.
-     */
-    struct RenderCell {
 
-        float x;
-        float y;
+    struct CellKeyHash
+    {
+        std::size_t operator()(const CellKey& key) const
+        {
+            std::size_t h1 =
+                std::hash<int>{}(key.x);
 
-        float elevation;
-        float intensity;
+            std::size_t h2 =
+                std::hash<int>{}(key.y);
 
-        float resolution;
+            std::size_t h3 =
+                std::hash<int>{}(key.band);
 
-        int band;
+            return h1 ^
+                   (h2 << 1) ^
+                   (h3 << 2);
+        }
     };
+
+
+    /*
+     * ========================================================
+     * RenderCell
+     * ========================================================
+     *
+     * World-space representation of an adaptive cell.
+     *
+     * x/y:
+     *     World-space center.
+     *
+     * minX/maxX:
+     *     Exact world-space X bounds.
+     *
+     * minY/maxY:
+     *     Exact world-space Y bounds.
+     *
+     * resolution:
+     *     Cell width and height.
+     */
+
+    struct RenderCell
+    {
+        float x = 0.0f;
+        float y = 0.0f;
+
+        float minX = 0.0f;
+        float maxX = 0.0f;
+
+        float minY = 0.0f;
+        float maxY = 0.0f;
+
+        float elevation = 0.0f;
+        float intensity = 0.0f;
+
+        float resolution = 0.0f;
+
+        int band = 0;
+    };
+
+
+    AdaptiveSpatialGrid(
+        float minX,
+        float maxX,
+        float minY,
+        float maxY,
+        const ResolutionProfile& profile
+    );
+
+
+    void build(
+        const PointCloud& cloud
+    );
+
+
+    std::size_t getCellCount() const;
+
+
+    std::vector<RenderCell>
+    getRenderCells() const;
+
 
 private:
-
-    struct CellKeyHash {
-
-        std::size_t operator()(
-            const CellKey &key
-        ) const;
-    };
 
     float minX;
     float maxX;
@@ -65,65 +142,12 @@ private:
     float minY;
     float maxY;
 
-    ResolutionProfile resolutionProfile;
+    ResolutionProfile profile;
+
 
     std::unordered_map<
         CellKey,
-        MapCell,
+        AdaptiveCell,
         CellKeyHash
     > cells;
-
-    float calculateDistance(
-        float x,
-        float y
-    ) const;
-
-    int getResolutionBand(
-        float distance
-    ) const;
-
-    CellKey getCellKey(
-        float x,
-        float y,
-        float distance
-    ) const;
-
-    void resetCell(
-        MapCell &cell
-    );
-
-    void addPointToCell(
-        MapCell &cell,
-        const Point &point
-    );
-
-public:
-
-    AdaptiveSpatialGrid(
-        float minX,
-        float maxX,
-        float minY,
-        float maxY,
-        const ResolutionProfile &resolutionProfile
-    );
-
-    void build(
-        const PointCloud &cloud
-    );
-
-    std::size_t getCellCount() const;
-
-    bool hasCell(
-        const CellKey &key
-    ) const;
-
-    const MapCell &getCell(
-        const CellKey &key
-    ) const;
-
-    float getCellResolution(
-        const CellKey &key
-    ) const;
-
-    std::vector<RenderCell> getRenderCells() const;
 };
