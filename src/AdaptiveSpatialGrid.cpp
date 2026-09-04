@@ -3,409 +3,114 @@
 #include <cmath>
 #include <stdexcept>
 
-
 namespace
 {
 
 /*
- * ============================================================
- * Distance
- * ============================================================
- *
- * Horizontal distance from the LiDAR sensor origin.
- *
- * Z is intentionally ignored because the adaptive resolution
- * profile is based on XY distance.
+ * Horizontal distance from sensor origin.
+ * Z is intentionally excluded — resolution is based on XY range only.
  */
-
-float calculateDistance(
-    float x,
-    float y)
+inline float horizontalDist(float x, float y)
 {
-    return std::sqrt(
-        x * x +
-        y * y
-    );
+    return std::sqrt(x * x + y * y);
 }
 
-
-/*
- * ============================================================
- * Reset adaptive cell
- * ============================================================
- */
-
-void resetCell(
-    AdaptiveCell& cell,
-    float resolution,
-    int band)
+void resetCell(AdaptiveCell& c, float resolution, int band)
 {
-    cell.elevation = 0.0f;
-    cell.intensity = 0.0f;
-
-    cell.pointCount = 0;
-
-    cell.elevationSum = 0.0f;
-
-    cell.minimumElevation = 0.0f;
-    cell.maximumElevation = 0.0f;
-
-    cell.resolution = resolution;
-    cell.band = band;
-
-    cell.semanticEvidence.fill(0);
-
-    cell.semanticClass =
-        SemanticClass::Unknown;
-
-    cell.semanticConfidence = 0.0f;
+    c.elevation          = 0.0f;
+    c.intensity          = 0.0f;
+    c.pointCount         = 0;
+    c.elevationSum       = 0.0f;
+    c.intensitySum       = 0.0f;
+    c.minimumElevation   = 0.0f;
+    c.maximumElevation   = 0.0f;
+    c.resolution         = resolution;
+    c.band               = band;
+    c.semanticEvidence.fill(0);
+    c.semanticClass      = SemanticClass::Unknown;
+    c.semanticConfidence = 0.0f;
 }
 
-
-/*
- * ============================================================
- * Add point to adaptive cell
- * ============================================================
- */
-
-void addPointToCell(
-    AdaptiveCell& cell,
-    const Point& point)
+void accumulatePoint(AdaptiveCell& c, const Point& pt)
 {
-    /*
-     * --------------------------------------------------------
-     * Elevation accumulation
-     * --------------------------------------------------------
-     */
+    c.elevationSum += pt.z;
+    c.intensitySum += pt.intensity;
 
-    cell.elevationSum +=
-        point.z;
-
-
-    /*
-     * --------------------------------------------------------
-     * Intensity accumulation
-     * --------------------------------------------------------
-     */
-
-    cell.intensity +=
-        point.intensity;
-
-
-    /*
-     * --------------------------------------------------------
-     * Minimum / maximum elevation
-     * --------------------------------------------------------
-     */
-
-    if (cell.pointCount == 0)
+    if (c.pointCount == 0)
     {
-        cell.minimumElevation =
-            point.z;
-
-        cell.maximumElevation =
-            point.z;
+        c.minimumElevation = pt.z;
+        c.maximumElevation = pt.z;
     }
     else
     {
-        if (point.z <
-            cell.minimumElevation)
-        {
-            cell.minimumElevation =
-                point.z;
-        }
-
-        if (point.z >
-            cell.maximumElevation)
-        {
-            cell.maximumElevation =
-                point.z;
-        }
+        if (pt.z < c.minimumElevation) c.minimumElevation = pt.z;
+        if (pt.z > c.maximumElevation) c.maximumElevation = pt.z;
     }
 
-
-    /*
-     * --------------------------------------------------------
-     * Observation count
-     * --------------------------------------------------------
-     */
-
-    ++cell.pointCount;
+    ++c.pointCount;
 }
 
-
-/*
- * ============================================================
- * Construct adaptive cell key
- * ============================================================
- */
-
-AdaptiveSpatialGrid::CellKey makeCellKey(
-    float x,
-    float y,
-    float resolution,
-    int band)
+AdaptiveSpatialGrid::CellKey makeCellKey(float x, float y, float res, int band)
 {
-    /*
-     * floor() is important here because it gives correct
-     * spatial indexing for both positive and negative
-     * coordinates.
-     */
-
-    const int cellX =
-        static_cast<int>(
-            std::floor(
-                x / resolution
-            )
-        );
-
-    const int cellY =
-        static_cast<int>(
-            std::floor(
-                y / resolution
-            )
-        );
-
-
-    /*
-     * CellKey declaration order is:
-     *
-     *     x
-     *     y
-     *     band
-     */
-
-    return AdaptiveSpatialGrid::CellKey{
-        cellX,
-        cellY,
+    // std::floor handles negative coordinates correctly
+    return {
+        static_cast<int>(std::floor(x / res)),
+        static_cast<int>(std::floor(y / res)),
         band
     };
 }
 
-}
+} // namespace
 
-
-/*
- * ============================================================
- * Constructor
- * ============================================================
- */
 
 AdaptiveSpatialGrid::AdaptiveSpatialGrid(
-    float minX,
-    float maxX,
-    float minY,
-    float maxY,
-    const ResolutionProfile& profile)
-    :
-    minX(minX),
-    maxX(maxX),
-    minY(minY),
-    maxY(maxY),
-    profile(profile)
+    float minX_, float maxX_,
+    float minY_, float maxY_,
+    const ResolutionProfile& profile_)
+    : minX(minX_), maxX(maxX_), minY(minY_), maxY(maxY_), profile(profile_)
 {
     if (maxX <= minX)
-    {
-        throw std::invalid_argument(
-            "maxX must be greater than minX"
-        );
-    }
-
+        throw std::invalid_argument("maxX must be greater than minX");
     if (maxY <= minY)
-    {
-        throw std::invalid_argument(
-            "maxY must be greater than minY"
-        );
-    }
+        throw std::invalid_argument("maxY must be greater than minY");
 }
 
 
-/*
- * ============================================================
- * Build adaptive grid
- * ============================================================
- */
-
-void AdaptiveSpatialGrid::build(
-    const PointCloud& cloud)
+void AdaptiveSpatialGrid::build(const PointCloud& cloud)
 {
-    /*
-     * Every build represents a fresh map.
-     *
-     * This also guarantees that rebuilding the grid does not
-     * retain cells from a previous point cloud.
-     */
-
     cells.clear();
 
-
-    /*
-     * --------------------------------------------------------
-     * Process every point
-     * --------------------------------------------------------
-     */
-
-    for (std::size_t i = 0;
-         i < cloud.size();
-         ++i)
+    for (std::size_t i = 0; i < cloud.size(); ++i)
     {
-        const Point& point =
-            cloud.getPoint(i);
+        const Point& pt = cloud.getPoint(i);
 
+        // Reject out-of-bounds or non-finite points
+        if (pt.x < minX || pt.x > maxX || pt.y < minY || pt.y > maxY) continue;
+        if (!std::isfinite(pt.x) || !std::isfinite(pt.y) ||
+            !std::isfinite(pt.z) || !std::isfinite(pt.intensity)) continue;
 
-        /*
-         * ----------------------------------------------------
-         * Mapping bounds
-         * ----------------------------------------------------
-         */
+        const float dist = horizontalDist(pt.x, pt.y);
+        const int   band = profile.getBand(dist);
+        const float res  = profile.getResolutionForBand(band);
 
-        if (point.x < minX ||
-            point.x > maxX ||
-            point.y < minY ||
-            point.y > maxY)
-        {
-            continue;
-        }
+        const CellKey key = makeCellKey(pt.x, pt.y, res, band);
 
+        auto [it, inserted] = cells.try_emplace(key, AdaptiveCell{});
+        if (inserted) resetCell(it->second, res, band);
 
-        /*
-         * ----------------------------------------------------
-         * Determine adaptive resolution
-         * ----------------------------------------------------
-         */
-
-        const float distance =
-            calculateDistance(
-                point.x,
-                point.y
-            );
-
-        const int band =
-            profile.getBand(
-                distance
-            );
-
-        const float resolution =
-            profile.getResolution(
-                distance
-            );
-
-
-        /*
-         * ----------------------------------------------------
-         * Determine spatial cell
-         * ----------------------------------------------------
-         */
-
-        const CellKey key =
-            makeCellKey(
-                point.x,
-                point.y,
-                resolution,
-                band
-            );
-
-
-        /*
-         * ----------------------------------------------------
-         * Create cell if necessary
-         * ----------------------------------------------------
-         *
-         * IMPORTANT:
-         *
-         * cells stores:
-         *
-         *     CellKey -> AdaptiveCell
-         *
-         * Never insert MapCell here.
-         */
-
-        auto [iterator, inserted] =
-            cells.try_emplace(
-                key,
-                AdaptiveCell{}
-            );
-
-
-        AdaptiveCell& cell =
-            iterator->second;
-
-
-        /*
-         * Newly-created cells receive their adaptive
-         * metadata once.
-         */
-
-        if (inserted)
-        {
-            resetCell(
-                cell,
-                resolution,
-                band
-            );
-        }
-
-
-        /*
-         * ----------------------------------------------------
-         * Accumulate LiDAR observation
-         * ----------------------------------------------------
-         */
-
-        addPointToCell(
-            cell,
-            point
-        );
+        accumulatePoint(it->second, pt);
     }
 
-
-    /*
-     * --------------------------------------------------------
-     * Finalize cell averages
-     * --------------------------------------------------------
-     */
-
-    for (auto& entry : cells)
+    // Finalize averages
+    for (auto& [key, c] : cells)
     {
-        AdaptiveCell& cell =
-            entry.second;
-
-        if (cell.pointCount == 0)
-        {
-            continue;
-        }
-
-
-        const float count =
-            static_cast<float>(
-                cell.pointCount
-            );
-
-
-        /*
-         * Average elevation.
-         */
-
-        cell.elevation =
-            cell.elevationSum /
-            count;
-
-
-        /*
-         * Average intensity.
-         */
-
-        cell.intensity /=
-            count;
+        if (c.pointCount == 0) continue;
+        const float n = static_cast<float>(c.pointCount);
+        c.elevation = c.elevationSum / n;
+        c.intensity = c.intensitySum / n;
     }
 }
 
-
-/*
- * ============================================================
- * Cell count
- * ============================================================
- */
 
 std::size_t AdaptiveSpatialGrid::getCellCount() const
 {
@@ -413,131 +118,37 @@ std::size_t AdaptiveSpatialGrid::getCellCount() const
 }
 
 
-/*
- * ============================================================
- * Render cells
- * ============================================================
- */
-
 std::vector<AdaptiveSpatialGrid::RenderCell>
 AdaptiveSpatialGrid::getRenderCells() const
 {
-    std::vector<RenderCell> renderCells;
+    std::vector<RenderCell> out;
+    out.reserve(cells.size());
 
-    renderCells.reserve(
-        cells.size()
-    );
-
-
-    /*
-     * --------------------------------------------------------
-     * Convert adaptive cells into renderer-facing cells
-     * --------------------------------------------------------
-     */
-
-    for (const auto& entry : cells)
+    for (const auto& [key, c] : cells)
     {
-        const CellKey& key =
-            entry.first;
+        if (c.pointCount == 0) continue;
 
-        const AdaptiveCell& cell =
-            entry.second;
+        const float res = c.resolution;
 
+        RenderCell rc;
+        rc.minX = static_cast<float>(key.x) * res;
+        rc.maxX = rc.minX + res;
+        rc.minY = static_cast<float>(key.y) * res;
+        rc.maxY = rc.minY + res;
+        rc.x    = rc.minX + res * 0.5f;
+        rc.y    = rc.minY + res * 0.5f;
 
-        /*
-         * The cell already stores the resolution that was
-         * selected during build().
-         */
+        rc.minimumElevation = c.minimumElevation;
+        rc.maximumElevation = c.maximumElevation;
+        rc.elevation        = c.elevation;
+        rc.elevationSpan    = c.maximumElevation - c.minimumElevation;
+        rc.intensity        = c.intensity;
+        rc.pointCount       = c.pointCount;
+        rc.resolution       = res;
+        rc.band             = c.band;
 
-        const float resolution =
-            cell.resolution;
-
-
-        /*
-         * ----------------------------------------------------
-         * World-space cell bounds
-         * ----------------------------------------------------
-         *
-         * Integer coordinates identify the lower-left cell
-         * corner.
-         */
-
-        const float minWorldX =
-            static_cast<float>(key.x) *
-            resolution;
-
-        const float maxWorldX =
-            minWorldX +
-            resolution;
-
-        const float minWorldY =
-            static_cast<float>(key.y) *
-            resolution;
-
-        const float maxWorldY =
-            minWorldY +
-            resolution;
-
-
-        /*
-         * ----------------------------------------------------
-         * World-space center
-         * ----------------------------------------------------
-         */
-
-        const float worldX =
-            minWorldX +
-            resolution * 0.5f;
-
-        const float worldY =
-            minWorldY +
-            resolution * 0.5f;
-
-
-        /*
-         * ----------------------------------------------------
-         * Build render cell
-         * ----------------------------------------------------
-         */
-
-        RenderCell renderCell;
-
-        renderCell.x =
-            worldX;
-
-        renderCell.y =
-            worldY;
-
-        renderCell.minX =
-            minWorldX;
-
-        renderCell.maxX =
-            maxWorldX;
-
-        renderCell.minY =
-            minWorldY;
-
-        renderCell.maxY =
-            maxWorldY;
-
-        renderCell.elevation =
-            cell.elevation;
-
-        renderCell.intensity =
-            cell.intensity;
-
-        renderCell.resolution =
-            resolution;
-
-        renderCell.band =
-            cell.band;
-
-
-        renderCells.push_back(
-            renderCell
-        );
+        out.push_back(rc);
     }
 
-
-    return renderCells;
+    return out;
 }

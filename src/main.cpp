@@ -107,6 +107,10 @@ int main()
         GL_DEPTH_TEST
     );
 
+    glDepthFunc(GL_LESS);
+    glEnable(GL_CULL_FACE);
+    glCullFace(GL_BACK);
+
     /*
      * --------------------------------------------------
      * Load LiDAR
@@ -480,14 +484,12 @@ int main()
             &height
         );
 
+        const float aspect = (height > 0)
+            ? static_cast<float>(width) / static_cast<float>(height)
+            : 1.0f;
+
         const glm::mat4 projection =
-            glm::perspective(
-                glm::radians(60.0f),
-                static_cast<float>(width) /
-                    static_cast<float>(height),
-                0.1f,
-                200.0f
-            );
+            glm::perspective(glm::radians(60.0f), aspect, 0.1f, 200.0f);
 /*
  * --------------------------------------------------
  * Render

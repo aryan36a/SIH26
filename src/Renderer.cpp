@@ -1,9 +1,10 @@
 #include "Renderer.h"
 
 #include <glad/gl.h>
-
 #include <glm/gtc/type_ptr.hpp>
 
+#include <algorithm>
+#include <cmath>
 #include <fstream>
 #include <iostream>
 #include <sstream>
@@ -11,88 +12,67 @@
 
 #include "AdaptiveCellMesh.h"
 
+
+// ============================================================
+// Helpers
+// ============================================================
+
+static std::string readFile(const char* path)
+{
+    std::ifstream f(path);
+    if (!f.is_open())
+    {
+        std::cerr << "Renderer: cannot open " << path << '\n';
+        return {};
+    }
+    std::ostringstream ss;
+    ss << f.rdbuf();
+    return ss.str();
+}
+
+
+void Renderer::setUniform1f(unsigned int prog, const char* name, float val)
+{
+    int loc = glGetUniformLocation(prog, name);
+    if (loc >= 0) glUniform1f(loc, val);
+}
+
+
+void Renderer::setCommonUniforms(unsigned int prog,
+                                  const glm::mat4& view,
+                                  const glm::mat4& proj)
+{
+    int vLoc = glGetUniformLocation(prog, "uView");
+    int pLoc = glGetUniformLocation(prog, "uProjection");
+    if (vLoc >= 0) glUniformMatrix4fv(vLoc, 1, GL_FALSE, glm::value_ptr(view));
+    if (pLoc >= 0) glUniformMatrix4fv(pLoc, 1, GL_FALSE, glm::value_ptr(proj));
+}
+
+
 // ============================================================
 // Constructor
 // ============================================================
 
 Renderer::Renderer()
-    : pointVBO(0),
-      pointVAO(0),
-      gridVBO(0),
-      gridVAO(0),
-      adaptiveVBO(0),
-      adaptiveVAO(0),
-      adaptiveEBO(0),
-      adaptiveIndexCount(0),
-      shaderProgram(0),
-      adaptiveShaderProgram(0),
-      minIntensity(0.0f),
-      maxIntensity(1.0f),
-      minElevation(0.0f),
-      maxElevation(1.0f)
 {
-    // --------------------------------------------------------
     // Raw point cloud buffers
-    // --------------------------------------------------------
+    glGenVertexArrays(1, &pointVAO);
+    glGenBuffers(1, &pointVBO);
 
-    glGenVertexArrays(
-        1,
-        &pointVAO
-    );
-
-    glGenBuffers(
-        1,
-        &pointVBO
-    );
-
-    // --------------------------------------------------------
     // Uniform grid buffers
-    // --------------------------------------------------------
+    glGenVertexArrays(1, &gridVAO);
+    glGenBuffers(1, &gridVBO);
 
-    glGenVertexArrays(
-        1,
-        &gridVAO
-    );
-
-    glGenBuffers(
-        1,
-        &gridVBO
-    );
-
-    // --------------------------------------------------------
     // Adaptive mesh buffers
-    // --------------------------------------------------------
-
-    glGenVertexArrays(
-        1,
-        &adaptiveVAO
-    );
-
-    glGenBuffers(
-        1,
-        &adaptiveVBO
-    );
-
-    glGenBuffers(
-        1,
-        &adaptiveEBO
-    );
-
-    // --------------------------------------------------------
-    // Create shaders
-    // --------------------------------------------------------
+    glGenVertexArrays(1, &adaptiveVAO);
+    glGenBuffers(1, &adaptiveVBO);
+    glGenBuffers(1, &adaptiveEBO);
 
     if (!createShaderProgram())
-    {
-        std::cerr
-            << "Failed to create point/grid shader program\n";
-    }
+        std::cerr << "Renderer: failed to create point/grid shader\n";
 
     if (!createAdaptiveShaderProgram())
-    {
-        std::cerr
-            << "Failed to create adaptive shader program\n";
-    }
+        std::cerr << "Renderer: failed to create adaptive shader\n";
 }
 
 
@@ -102,109 +82,18 @@ Renderer::Renderer()
 
 Renderer::~Renderer()
 {
-    // --------------------------------------------------------
-    // Shader programs
-    // --------------------------------------------------------
+    if (shaderProgram)         { glDeleteProgram(shaderProgram);         shaderProgram = 0; }
+    if (adaptiveShaderProgram) { glDeleteProgram(adaptiveShaderProgram); adaptiveShaderProgram = 0; }
 
-    if (shaderProgram != 0)
-    {
-        glDeleteProgram(
-            shaderProgram
-        );
+    if (pointVBO) { glDeleteBuffers(1, &pointVBO);  pointVBO = 0; }
+    if (pointVAO) { glDeleteVertexArrays(1, &pointVAO); pointVAO = 0; }
 
-        shaderProgram = 0;
-    }
+    if (gridVBO) { glDeleteBuffers(1, &gridVBO);  gridVBO = 0; }
+    if (gridVAO) { glDeleteVertexArrays(1, &gridVAO); gridVAO = 0; }
 
-    if (adaptiveShaderProgram != 0)
-    {
-        glDeleteProgram(
-            adaptiveShaderProgram
-        );
-
-        adaptiveShaderProgram = 0;
-    }
-
-    // --------------------------------------------------------
-    // Point cloud buffers
-    // --------------------------------------------------------
-
-    if (pointVBO != 0)
-    {
-        glDeleteBuffers(
-            1,
-            &pointVBO
-        );
-
-        pointVBO = 0;
-    }
-
-    if (pointVAO != 0)
-    {
-        glDeleteVertexArrays(
-            1,
-            &pointVAO
-        );
-
-        pointVAO = 0;
-    }
-
-    // --------------------------------------------------------
-    // Uniform grid buffers
-    // --------------------------------------------------------
-
-    if (gridVBO != 0)
-    {
-        glDeleteBuffers(
-            1,
-            &gridVBO
-        );
-
-        gridVBO = 0;
-    }
-
-    if (gridVAO != 0)
-    {
-        glDeleteVertexArrays(
-            1,
-            &gridVAO
-        );
-
-        gridVAO = 0;
-    }
-
-    // --------------------------------------------------------
-    // Adaptive mesh buffers
-    // --------------------------------------------------------
-
-    if (adaptiveVBO != 0)
-    {
-        glDeleteBuffers(
-            1,
-            &adaptiveVBO
-        );
-
-        adaptiveVBO = 0;
-    }
-
-    if (adaptiveEBO != 0)
-    {
-        glDeleteBuffers(
-            1,
-            &adaptiveEBO
-        );
-
-        adaptiveEBO = 0;
-    }
-
-    if (adaptiveVAO != 0)
-    {
-        glDeleteVertexArrays(
-            1,
-            &adaptiveVAO
-        );
-
-        adaptiveVAO = 0;
-    }
+    if (adaptiveVBO) { glDeleteBuffers(1, &adaptiveVBO); adaptiveVBO = 0; }
+    if (adaptiveEBO) { glDeleteBuffers(1, &adaptiveEBO); adaptiveEBO = 0; }
+    if (adaptiveVAO) { glDeleteVertexArrays(1, &adaptiveVAO); adaptiveVAO = 0; }
 }
 
 
@@ -212,1028 +101,364 @@ Renderer::~Renderer()
 // Shader compilation
 // ============================================================
 
-unsigned int Renderer::compileShader(
-    unsigned int type,
-    const char* source)
+unsigned int Renderer::compileShader(unsigned int type, const char* src)
 {
-    unsigned int shader =
-        glCreateShader(type);
+    unsigned int shader = glCreateShader(type);
+    if (!shader) return 0;
 
-    if (shader == 0)
+    glShaderSource(shader, 1, &src, nullptr);
+    glCompileShader(shader);
+
+    int ok = 0;
+    glGetShaderiv(shader, GL_COMPILE_STATUS, &ok);
+    if (!ok)
     {
-        std::cerr
-            << "Failed to create shader object\n";
-
+        char log[2048];
+        glGetShaderInfoLog(shader, sizeof(log), nullptr, log);
+        std::cerr << "Shader compile error:\n" << log << '\n';
+        glDeleteShader(shader);
         return 0;
     }
-
-    glShaderSource(
-        shader,
-        1,
-        &source,
-        nullptr
-    );
-
-    glCompileShader(
-        shader
-    );
-
-    int success = 0;
-
-    glGetShaderiv(
-        shader,
-        GL_COMPILE_STATUS,
-        &success
-    );
-
-    if (!success)
-    {
-        char infoLog[1024];
-
-        glGetShaderInfoLog(
-            shader,
-            sizeof(infoLog),
-            nullptr,
-            infoLog
-        );
-
-        std::cerr
-            << "Shader compilation failed:\n"
-            << infoLog
-            << '\n';
-
-        glDeleteShader(
-            shader
-        );
-
-        return 0;
-    }
-
     return shader;
 }
 
+static unsigned int linkProgram(unsigned int vs, unsigned int fs)
+{
+    unsigned int prog = glCreateProgram();
+    if (!prog) return 0;
 
-// ============================================================
-// Normal point/grid shader
-// ============================================================
+    glAttachShader(prog, vs);
+    glAttachShader(prog, fs);
+    glLinkProgram(prog);
+
+    int ok = 0;
+    glGetProgramiv(prog, GL_LINK_STATUS, &ok);
+    if (!ok)
+    {
+        char log[2048];
+        glGetProgramInfoLog(prog, sizeof(log), nullptr, log);
+        std::cerr << "Shader link error:\n" << log << '\n';
+        glDeleteProgram(prog);
+        return 0;
+    }
+    return prog;
+}
 
 bool Renderer::createShaderProgram()
 {
-    std::ifstream vertexFile(
-        "shaders/point.vert"
-    );
+    const std::string vsrc = readFile("shaders/point.vert");
+    const std::string fsrc = readFile("shaders/point.frag");
+    if (vsrc.empty() || fsrc.empty()) return false;
 
-    std::ifstream fragmentFile(
-        "shaders/point.frag"
-    );
+    unsigned int vs = compileShader(GL_VERTEX_SHADER,   vsrc.c_str());
+    unsigned int fs = compileShader(GL_FRAGMENT_SHADER, fsrc.c_str());
+    if (!vs || !fs) { glDeleteShader(vs); glDeleteShader(fs); return false; }
 
-    if (!vertexFile.is_open())
-    {
-        std::cerr
-            << "Failed to open shaders/point.vert\n";
-
-        return false;
-    }
-
-    if (!fragmentFile.is_open())
-    {
-        std::cerr
-            << "Failed to open shaders/point.frag\n";
-
-        return false;
-    }
-
-    std::stringstream vertexStream;
-    std::stringstream fragmentStream;
-
-    vertexStream
-        << vertexFile.rdbuf();
-
-    fragmentStream
-        << fragmentFile.rdbuf();
-
-    const std::string vertexSource =
-        vertexStream.str();
-
-    const std::string fragmentSource =
-        fragmentStream.str();
-
-    unsigned int vertexShader =
-        compileShader(
-            GL_VERTEX_SHADER,
-            vertexSource.c_str()
-        );
-
-    if (vertexShader == 0)
-    {
-        return false;
-    }
-
-    unsigned int fragmentShader =
-        compileShader(
-            GL_FRAGMENT_SHADER,
-            fragmentSource.c_str()
-        );
-
-    if (fragmentShader == 0)
-    {
-        glDeleteShader(
-            vertexShader
-        );
-
-        return false;
-    }
-
-    shaderProgram =
-        glCreateProgram();
-
-    if (shaderProgram == 0)
-    {
-        std::cerr
-            << "Failed to create shader program\n";
-
-        glDeleteShader(vertexShader);
-        glDeleteShader(fragmentShader);
-
-        return false;
-    }
-
-    glAttachShader(
-        shaderProgram,
-        vertexShader
-    );
-
-    glAttachShader(
-        shaderProgram,
-        fragmentShader
-    );
-
-    glLinkProgram(
-        shaderProgram
-    );
-
-    int success = 0;
-
-    glGetProgramiv(
-        shaderProgram,
-        GL_LINK_STATUS,
-        &success
-    );
-
-    if (!success)
-    {
-        char infoLog[1024];
-
-        glGetProgramInfoLog(
-            shaderProgram,
-            sizeof(infoLog),
-            nullptr,
-            infoLog
-        );
-
-        std::cerr
-            << "Shader linking failed:\n"
-            << infoLog
-            << '\n';
-
-        glDeleteShader(vertexShader);
-        glDeleteShader(fragmentShader);
-
-        glDeleteProgram(shaderProgram);
-
-        shaderProgram = 0;
-
-        return false;
-    }
-
-    glDeleteShader(
-        vertexShader
-    );
-
-    glDeleteShader(
-        fragmentShader
-    );
-
-    return true;
+    shaderProgram = linkProgram(vs, fs);
+    glDeleteShader(vs);
+    glDeleteShader(fs);
+    return shaderProgram != 0;
 }
-
-
-// ============================================================
-// Adaptive shader
-// ============================================================
 
 bool Renderer::createAdaptiveShaderProgram()
 {
-    std::ifstream vertexFile(
-        "shaders/adaptive.vert"
-    );
+    const std::string vsrc = readFile("shaders/adaptive.vert");
+    const std::string fsrc = readFile("shaders/adaptive.frag");
+    if (vsrc.empty() || fsrc.empty()) return false;
 
-    std::ifstream fragmentFile(
-        "shaders/adaptive.frag"
-    );
+    unsigned int vs = compileShader(GL_VERTEX_SHADER,   vsrc.c_str());
+    unsigned int fs = compileShader(GL_FRAGMENT_SHADER, fsrc.c_str());
+    if (!vs || !fs) { glDeleteShader(vs); glDeleteShader(fs); return false; }
 
-    if (!vertexFile.is_open())
-    {
-        std::cerr
-            << "Failed to open shaders/adaptive.vert\n";
-
-        return false;
-    }
-
-    if (!fragmentFile.is_open())
-    {
-        std::cerr
-            << "Failed to open shaders/adaptive.frag\n";
-
-        return false;
-    }
-
-    std::stringstream vertexStream;
-    std::stringstream fragmentStream;
-
-    vertexStream
-        << vertexFile.rdbuf();
-
-    fragmentStream
-        << fragmentFile.rdbuf();
-
-    const std::string vertexSource =
-        vertexStream.str();
-
-    const std::string fragmentSource =
-        fragmentStream.str();
-
-    unsigned int vertexShader =
-        compileShader(
-            GL_VERTEX_SHADER,
-            vertexSource.c_str()
-        );
-
-    if (vertexShader == 0)
-    {
-        return false;
-    }
-
-    unsigned int fragmentShader =
-        compileShader(
-            GL_FRAGMENT_SHADER,
-            fragmentSource.c_str()
-        );
-
-    if (fragmentShader == 0)
-    {
-        glDeleteShader(
-            vertexShader
-        );
-
-        return false;
-    }
-
-    adaptiveShaderProgram =
-        glCreateProgram();
-
-    if (adaptiveShaderProgram == 0)
-    {
-        std::cerr
-            << "Failed to create adaptive shader program\n";
-
-        glDeleteShader(vertexShader);
-        glDeleteShader(fragmentShader);
-
-        return false;
-    }
-
-    glAttachShader(
-        adaptiveShaderProgram,
-        vertexShader
-    );
-
-    glAttachShader(
-        adaptiveShaderProgram,
-        fragmentShader
-    );
-
-    glLinkProgram(
-        adaptiveShaderProgram
-    );
-
-    int success = 0;
-
-    glGetProgramiv(
-        adaptiveShaderProgram,
-        GL_LINK_STATUS,
-        &success
-    );
-
-    if (!success)
-    {
-        char infoLog[1024];
-
-        glGetProgramInfoLog(
-            adaptiveShaderProgram,
-            sizeof(infoLog),
-            nullptr,
-            infoLog
-        );
-
-        std::cerr
-            << "Adaptive shader linking failed:\n"
-            << infoLog
-            << '\n';
-
-        glDeleteShader(vertexShader);
-        glDeleteShader(fragmentShader);
-
-        glDeleteProgram(
-            adaptiveShaderProgram
-        );
-
-        adaptiveShaderProgram = 0;
-
-        return false;
-    }
-
-    glDeleteShader(
-        vertexShader
-    );
-
-    glDeleteShader(
-        fragmentShader
-    );
-
-    return true;
+    adaptiveShaderProgram = linkProgram(vs, fs);
+    glDeleteShader(vs);
+    glDeleteShader(fs);
+    return adaptiveShaderProgram != 0;
 }
 
 
 // ============================================================
-// Common matrices
+// Upload: raw point cloud
+// Single contiguous glBufferData (not per-point glBufferSubData)
 // ============================================================
 
-void Renderer::setCommonUniforms(
-    unsigned int program,
-    const glm::mat4& view,
-    const glm::mat4& projection)
+bool Renderer::uploadPointCloud(const PointCloud& cloud)
 {
-    if (program == 0)
+    // Pack into flat float buffer [x,y,z,intensity, ...]
+    const std::size_t n = cloud.size();
+    std::vector<float> buf;
+    buf.reserve(n * 4);
+    bool haveFinitePoint = false;
+    minIntensity = 0.0f;
+    maxIntensity = 1.0f;
+    for (std::size_t i = 0; i < n; ++i)
     {
-        return;
-    }
+        const Point& p = cloud.getPoint(i);
+        if (!std::isfinite(p.x) || !std::isfinite(p.y) ||
+            !std::isfinite(p.z) || !std::isfinite(p.intensity)) continue;
 
-    const int viewLocation =
-        glGetUniformLocation(
-            program,
-            "uView"
-        );
-
-    const int projectionLocation =
-        glGetUniformLocation(
-            program,
-            "uProjection"
-        );
-
-    if (viewLocation >= 0)
-    {
-        glUniformMatrix4fv(
-            viewLocation,
-            1,
-            GL_FALSE,
-            glm::value_ptr(view)
-        );
-    }
-
-    if (projectionLocation >= 0)
-    {
-        glUniformMatrix4fv(
-            projectionLocation,
-            1,
-            GL_FALSE,
-            glm::value_ptr(projection)
-        );
-    }
-}
-
-
-// ============================================================
-// Upload raw point cloud
-// ============================================================
-
-bool Renderer::uploadPointCloud(
-    const PointCloud& cloud)
-{
-    if (cloud.size() == 0)
-    {
-        return false;
-    }
-
-    minIntensity =
-        cloud.getMinIntensity();
-
-    maxIntensity =
-        cloud.getMaxIntensity();
-
-    glBindVertexArray(
-        pointVAO
-    );
-
-    glBindBuffer(
-        GL_ARRAY_BUFFER,
-        pointVBO
-    );
-
-    glBufferData(
-        GL_ARRAY_BUFFER,
-        static_cast<GLsizeiptr>(
-            cloud.size() * sizeof(Point)
-        ),
-        nullptr,
-        GL_STATIC_DRAW
-    );
-
-    for (std::size_t i = 0;
-         i < cloud.size();
-         ++i)
-    {
-        const Point& point =
-            cloud.getPoint(i);
-
-        glBufferSubData(
-            GL_ARRAY_BUFFER,
-            static_cast<GLintptr>(
-                i * sizeof(Point)
-            ),
-            sizeof(Point),
-            &point
-        );
-    }
-
-    // Position: x, y, z
-    glVertexAttribPointer(
-        0,
-        3,
-        GL_FLOAT,
-        GL_FALSE,
-        sizeof(Point),
-        reinterpret_cast<void*>(0)
-    );
-
-    glEnableVertexAttribArray(
-        0
-    );
-
-    // Intensity
-    glVertexAttribPointer(
-        1,
-        1,
-        GL_FLOAT,
-        GL_FALSE,
-        sizeof(Point),
-        reinterpret_cast<void*>(
-            sizeof(float) * 3
-        )
-    );
-
-    glEnableVertexAttribArray(
-        1
-    );
-
-    glBindBuffer(
-        GL_ARRAY_BUFFER,
-        0
-    );
-
-    glBindVertexArray(
-        0
-    );
-
-    return true;
-}
-
-
-// ============================================================
-// Upload uniform grid
-// ============================================================
-
-bool Renderer::uploadGrid(
-    const SpatialGrid& grid)
-{
-    if (grid.getWidth() == 0 ||
-        grid.getHeight() == 0)
-    {
-        return false;
-    }
-
-    std::vector<Point> gridPoints;
-
-    gridPoints.reserve(
-        grid.getWidth() *
-        grid.getHeight()
-    );
-
-    for (std::size_t y = 0;
-         y < grid.getHeight();
-         ++y)
-    {
-        for (std::size_t x = 0;
-             x < grid.getWidth();
-             ++x)
+        if (!haveFinitePoint)
         {
-            if (!grid.hasData(x, y))
-            {
-                continue;
-            }
-
-            const float worldX =
-                grid.getMinX() +
-                (
-                    static_cast<float>(x) +
-                    0.5f
-                ) *
-                grid.getCellSize();
-
-            const float worldY =
-                grid.getMinY() +
-                (
-                    static_cast<float>(y) +
-                    0.5f
-                ) *
-                grid.getCellSize();
-
-            const float elevation =
-                grid.getElevation(
-                    x,
-                    y
-                );
-
-            const float intensity =
-                grid.getIntensity(
-                    x,
-                    y
-                );
-
-            gridPoints.push_back(
-                Point{
-                    worldX,
-                    worldY,
-                    elevation,
-                    intensity
-                }
-            );
+            minIntensity = p.intensity;
+            maxIntensity = p.intensity;
+            haveFinitePoint = true;
         }
+        else
+        {
+            minIntensity = std::min(minIntensity, p.intensity);
+            maxIntensity = std::max(maxIntensity, p.intensity);
+        }
+
+        buf.push_back(p.x);
+        buf.push_back(p.y);
+        buf.push_back(p.z);
+        buf.push_back(p.intensity);
     }
 
-    if (gridPoints.empty())
-    {
-        return false;
-    }
+    if (!haveFinitePoint) return false;
 
-    glBindVertexArray(
-        gridVAO
-    );
+    glBindVertexArray(pointVAO);
+    glBindBuffer(GL_ARRAY_BUFFER, pointVBO);
+    glBufferData(GL_ARRAY_BUFFER,
+                 static_cast<GLsizeiptr>(buf.size() * sizeof(float)),
+                 buf.data(), GL_STATIC_DRAW);
 
-    glBindBuffer(
-        GL_ARRAY_BUFFER,
-        gridVBO
-    );
+    // location 0: position (x,y,z), stride=16, offset=0
+    glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 4 * sizeof(float),
+                          reinterpret_cast<void*>(0));
+    glEnableVertexAttribArray(0);
 
-    glBufferData(
-        GL_ARRAY_BUFFER,
-        static_cast<GLsizeiptr>(
-            gridPoints.size() * sizeof(Point)
-        ),
-        gridPoints.data(),
-        GL_STATIC_DRAW
-    );
+    // location 1: intensity, stride=16, offset=12
+    glVertexAttribPointer(1, 1, GL_FLOAT, GL_FALSE, 4 * sizeof(float),
+                          reinterpret_cast<void*>(3 * sizeof(float)));
+    glEnableVertexAttribArray(1);
 
-    // Position
-    glVertexAttribPointer(
-        0,
-        3,
-        GL_FLOAT,
-        GL_FALSE,
-        sizeof(Point),
-        reinterpret_cast<void*>(0)
-    );
+    glBindBuffer(GL_ARRAY_BUFFER, 0);
+    glBindVertexArray(0);
 
-    glEnableVertexAttribArray(
-        0
-    );
-
-    // Intensity
-    glVertexAttribPointer(
-        1,
-        1,
-        GL_FLOAT,
-        GL_FALSE,
-        sizeof(Point),
-        reinterpret_cast<void*>(
-            sizeof(float) * 3
-        )
-    );
-
-    glEnableVertexAttribArray(
-        1
-    );
-
-    glBindBuffer(
-        GL_ARRAY_BUFFER,
-        0
-    );
-
-    glBindVertexArray(
-        0
-    );
-
+    pointCount = static_cast<GLsizei>(buf.size() / 4);
     return true;
 }
 
 
 // ============================================================
-// Upload adaptive 2.5D grid
+// Upload: uniform spatial grid
 // ============================================================
 
-bool Renderer::uploadAdaptiveGrid(
-    const AdaptiveSpatialGrid& grid)
+bool Renderer::uploadGrid(const SpatialGrid& grid)
+{
+    if (grid.getWidth() == 0 || grid.getHeight() == 0) return false;
+
+    std::vector<float> buf;
+    buf.reserve(grid.getWidth() * grid.getHeight() * 4);
+
+    for (std::size_t y = 0; y < grid.getHeight(); ++y)
+    for (std::size_t x = 0; x < grid.getWidth();  ++x)
+    {
+        if (!grid.hasData(x, y)) continue;
+        float wx = grid.getMinX() + (static_cast<float>(x) + 0.5f) * grid.getCellSize();
+        float wy = grid.getMinY() + (static_cast<float>(y) + 0.5f) * grid.getCellSize();
+        buf.push_back(wx);
+        buf.push_back(wy);
+        buf.push_back(grid.getElevation(x, y));
+        buf.push_back(grid.getIntensity(x, y));
+    }
+
+    if (buf.empty()) return false;
+
+    glBindVertexArray(gridVAO);
+    glBindBuffer(GL_ARRAY_BUFFER, gridVBO);
+    glBufferData(GL_ARRAY_BUFFER,
+                 static_cast<GLsizeiptr>(buf.size() * sizeof(float)),
+                 buf.data(), GL_STATIC_DRAW);
+
+    glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 4 * sizeof(float),
+                          reinterpret_cast<void*>(0));
+    glEnableVertexAttribArray(0);
+    glVertexAttribPointer(1, 1, GL_FLOAT, GL_FALSE, 4 * sizeof(float),
+                          reinterpret_cast<void*>(3 * sizeof(float)));
+    glEnableVertexAttribArray(1);
+
+    glBindBuffer(GL_ARRAY_BUFFER, 0);
+    glBindVertexArray(0);
+
+    gridVertCount = static_cast<GLsizei>(buf.size() / 4);
+    return true;
+}
+
+
+// ============================================================
+// Upload: adaptive 2.5D mesh
+// ============================================================
+
+bool Renderer::uploadAdaptiveGrid(const AdaptiveSpatialGrid& grid)
 {
     AdaptiveCellMesh mesh;
+    mesh.build(grid);
 
-    mesh.build(
-        grid
-    );
-
-    if (mesh.getVertexCount() == 0 ||
-        mesh.getIndexCount() == 0)
+    if (mesh.getVertexCount() == 0 || mesh.getIndexCount() == 0)
     {
         adaptiveIndexCount = 0;
-
         return false;
     }
 
-    const auto& vertices =
-        mesh.getVertices();
+    const auto& rawVerts = mesh.getVertices();
+    const auto& idxData  = mesh.getIndices();
+    const auto renderCells = grid.getRenderCells();
 
-    const auto& indices =
-        mesh.getIndices();
-
-    // --------------------------------------------------------
-    // Calculate elevation range
-    // --------------------------------------------------------
-
-    minElevation =
-        vertices[0].z;
-
-    maxElevation =
-        vertices[0].z;
-
-    for (const auto& vertex : vertices)
+    // Derive the color range from observed cell statistics, not synthetic
+    // wall vertices. Skirt geometry must never stretch the elevation map.
     {
-        if (vertex.z < minElevation)
+        std::vector<float> zs;
+        zs.reserve(renderCells.size() * 3);
+        for (const auto& cell : renderCells)
         {
-            minElevation =
-                vertex.z;
+            zs.push_back(cell.minimumElevation);
+            zs.push_back(cell.elevation);
+            zs.push_back(cell.maximumElevation);
         }
 
-        if (vertex.z > maxElevation)
+        if (zs.empty())
         {
-            maxElevation =
-                vertex.z;
+            adaptiveIndexCount = 0;
+            return false;
         }
+
+        std::sort(zs.begin(), zs.end());
+
+        const std::size_t n   = zs.size();
+        const std::size_t lo  = static_cast<std::size_t>(n * 0.02f);
+        const std::size_t hi  = static_cast<std::size_t>(n * 0.98f);
+        minElevation = zs[lo];
+        maxElevation = zs[std::min(hi, n - 1)];
+        if (maxElevation - minElevation < 1e-4f) maxElevation = minElevation + 1.0f;
     }
 
-    // --------------------------------------------------------
-    // Upload vertex data
-    // --------------------------------------------------------
+    // ---- Normalize intensity to [0,1] before GPU upload ----
+    float iMin = rawVerts[0].intensity;
+    float iMax = rawVerts[0].intensity;
+    for (const auto& v : rawVerts) {
+        if (v.intensity < iMin) iMin = v.intensity;
+        if (v.intensity > iMax) iMax = v.intensity;
+    }
+    const float iRange = (iMax - iMin > 1e-6f) ? (iMax - iMin) : 1.0f;
 
-    glBindVertexArray(
-        adaptiveVAO
-    );
+    std::vector<AdaptiveCellMesh::Vertex> normVerts = rawVerts;
+    for (auto& v : normVerts)
+        v.intensity = (v.intensity - iMin) / iRange;
 
-    glBindBuffer(
-        GL_ARRAY_BUFFER,
-        adaptiveVBO
-    );
+    // ---- GPU upload ----
+    glBindVertexArray(adaptiveVAO);
 
-    glBufferData(
-        GL_ARRAY_BUFFER,
-        static_cast<GLsizeiptr>(
-            vertices.size() *
-            sizeof(AdaptiveCellMesh::Vertex)
-        ),
-        vertices.data(),
-        GL_STATIC_DRAW
-    );
+    glBindBuffer(GL_ARRAY_BUFFER, adaptiveVBO);
+    glBufferData(GL_ARRAY_BUFFER,
+                 static_cast<GLsizeiptr>(normVerts.size() * sizeof(AdaptiveCellMesh::Vertex)),
+                 normVerts.data(), GL_STATIC_DRAW);
 
-    // --------------------------------------------------------
-    // Upload index data
-    // --------------------------------------------------------
+    // IMPORTANT: bind EBO WHILE VAO is active so it is stored in VAO state
+    glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, adaptiveEBO);
+    glBufferData(GL_ELEMENT_ARRAY_BUFFER,
+                 static_cast<GLsizeiptr>(idxData.size() * sizeof(unsigned int)),
+                 idxData.data(), GL_STATIC_DRAW);
 
-    glBindBuffer(
-        GL_ELEMENT_ARRAY_BUFFER,
-        adaptiveEBO
-    );
+    // location 0: position (x,y,z), stride = sizeof(Vertex) = 16
+    glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE,
+                          sizeof(AdaptiveCellMesh::Vertex),
+                          reinterpret_cast<void*>(0));
+    glEnableVertexAttribArray(0);
 
-    glBufferData(
-        GL_ELEMENT_ARRAY_BUFFER,
-        static_cast<GLsizeiptr>(
-            indices.size() *
-            sizeof(unsigned int)
-        ),
-        indices.data(),
-        GL_STATIC_DRAW
-    );
+    // location 1: intensity (1 float at offset 12)
+    glVertexAttribPointer(1, 1, GL_FLOAT, GL_FALSE,
+                          sizeof(AdaptiveCellMesh::Vertex),
+                          reinterpret_cast<void*>(3 * sizeof(float)));
+    glEnableVertexAttribArray(1);
 
-    // --------------------------------------------------------
-    // Position
-    // --------------------------------------------------------
+    glVertexAttribPointer(2, 3, GL_FLOAT, GL_FALSE,
+                          sizeof(AdaptiveCellMesh::Vertex),
+                          reinterpret_cast<void*>(4 * sizeof(float)));
+    glEnableVertexAttribArray(2);
 
-    glVertexAttribPointer(
-        0,
-        3,
-        GL_FLOAT,
-        GL_FALSE,
-        sizeof(AdaptiveCellMesh::Vertex),
-        reinterpret_cast<void*>(0)
-    );
+    adaptiveIndexCount = static_cast<unsigned int>(idxData.size());
 
-    glEnableVertexAttribArray(
-        0
-    );
-
-    // --------------------------------------------------------
-    // Intensity
-    // --------------------------------------------------------
-
-    glVertexAttribPointer(
-        1,
-        1,
-        GL_FLOAT,
-        GL_FALSE,
-        sizeof(AdaptiveCellMesh::Vertex),
-        reinterpret_cast<void*>(
-            sizeof(float) * 3
-        )
-    );
-
-    glEnableVertexAttribArray(
-        1
-    );
-
-    adaptiveIndexCount =
-        static_cast<unsigned int>(
-            indices.size()
-        );
-
-    // --------------------------------------------------------
-    // Unbind
-    //
-    // IMPORTANT:
-    // Do NOT unbind the EBO while the VAO
-    // is still active.
-    // --------------------------------------------------------
-
-    glBindBuffer(
-        GL_ARRAY_BUFFER,
-        0
-    );
-
-    glBindVertexArray(
-        0
-    );
+    // Unbind VBO ONLY — do NOT unbind EBO while VAO is active
+    glBindBuffer(GL_ARRAY_BUFFER, 0);
+    glBindVertexArray(0);
 
     return true;
 }
 
 
 // ============================================================
-// Render raw point cloud
+// Render: raw point cloud
 // ============================================================
 
-void Renderer::render(
-    const PointCloud& cloud,
-    const glm::mat4& view,
-    const glm::mat4& projection)
+void Renderer::render(const PointCloud& cloud,
+                       const glm::mat4& view,
+                       const glm::mat4& projection)
 {
-    if (cloud.size() == 0 ||
-        shaderProgram == 0)
-    {
-        return;
-    }
+    (void)cloud;  // pointCount is cached from upload
+    if (pointCount == 0 || shaderProgram == 0) return;
 
-    glUseProgram(
-        shaderProgram
-    );
+    glEnable(GL_PROGRAM_POINT_SIZE);
+    glUseProgram(shaderProgram);
+    setCommonUniforms(shaderProgram, view, projection);
+    setUniform1f(shaderProgram, "uMinIntensity", minIntensity);
+    setUniform1f(shaderProgram, "uMaxIntensity", maxIntensity);
+    setUniform1f(shaderProgram, "uPointBaseSize", 0.20f);
 
-    setCommonUniforms(
-        shaderProgram,
-        view,
-        projection
-    );
-
-    const int minIntensityLocation =
-        glGetUniformLocation(
-            shaderProgram,
-            "uMinIntensity"
-        );
-
-    const int maxIntensityLocation =
-        glGetUniformLocation(
-            shaderProgram,
-            "uMaxIntensity"
-        );
-
-    if (minIntensityLocation >= 0)
-    {
-        glUniform1f(
-            minIntensityLocation,
-            minIntensity
-        );
-    }
-
-    if (maxIntensityLocation >= 0)
-    {
-        glUniform1f(
-            maxIntensityLocation,
-            maxIntensity
-        );
-    }
-
-    glBindVertexArray(
-        pointVAO
-    );
-
-    glDrawArrays(
-        GL_POINTS,
-        0,
-        static_cast<GLsizei>(
-            cloud.size()
-        )
-    );
-
-    glBindVertexArray(
-        0
-    );
+    glBindVertexArray(pointVAO);
+    glDrawArrays(GL_POINTS, 0, pointCount);
+    glBindVertexArray(0);
 }
 
 
 // ============================================================
-// Render uniform grid
+// Render: uniform spatial grid (as points)
 // ============================================================
 
-void Renderer::render(
-    const SpatialGrid& grid,
-    const glm::mat4& view,
-    const glm::mat4& projection)
+void Renderer::render(const SpatialGrid& grid,
+                       const glm::mat4& view,
+                       const glm::mat4& projection)
 {
-    if (grid.getWidth() == 0 ||
-        grid.getHeight() == 0 ||
-        shaderProgram == 0)
-    {
-        return;
-    }
+    (void)grid;
+    if (gridVertCount == 0 || shaderProgram == 0) return;
 
-    glUseProgram(
-        shaderProgram
-    );
+    glEnable(GL_PROGRAM_POINT_SIZE);
+    glUseProgram(shaderProgram);
+    setCommonUniforms(shaderProgram, view, projection);
+    setUniform1f(shaderProgram, "uMinIntensity", minIntensity);
+    setUniform1f(shaderProgram, "uMaxIntensity", maxIntensity);
+    setUniform1f(shaderProgram, "uPointBaseSize", 0.40f);
 
-    setCommonUniforms(
-        shaderProgram,
-        view,
-        projection
-    );
-
-    const int minIntensityLocation =
-        glGetUniformLocation(
-            shaderProgram,
-            "uMinIntensity"
-        );
-
-    const int maxIntensityLocation =
-        glGetUniformLocation(
-            shaderProgram,
-            "uMaxIntensity"
-        );
-
-    if (minIntensityLocation >= 0)
-    {
-        glUniform1f(
-            minIntensityLocation,
-            minIntensity
-        );
-    }
-
-    if (maxIntensityLocation >= 0)
-    {
-        glUniform1f(
-            maxIntensityLocation,
-            maxIntensity
-        );
-    }
-
-    std::size_t populatedCells = 0;
-
-    for (std::size_t y = 0;
-         y < grid.getHeight();
-         ++y)
-    {
-        for (std::size_t x = 0;
-             x < grid.getWidth();
-             ++x)
-        {
-            if (grid.hasData(x, y))
-            {
-                ++populatedCells;
-            }
-        }
-    }
-
-    if (populatedCells == 0)
-    {
-        return;
-    }
-
-    glBindVertexArray(
-        gridVAO
-    );
-
-    glDrawArrays(
-        GL_POINTS,
-        0,
-        static_cast<GLsizei>(
-            populatedCells
-        )
-    );
-
-    glBindVertexArray(
-        0
-    );
+    glBindVertexArray(gridVAO);
+    glDrawArrays(GL_POINTS, 0, gridVertCount);
+    glBindVertexArray(0);
 }
 
 
 // ============================================================
-// Render adaptive 2.5D mesh
+// Render: adaptive 2.5D mesh
 // ============================================================
 
-void Renderer::renderAdaptive(
-    const glm::mat4& view,
-    const glm::mat4& projection)
+void Renderer::renderAdaptive(const glm::mat4& view,
+                               const glm::mat4& projection)
 {
-    if (adaptiveIndexCount == 0 ||
-        adaptiveShaderProgram == 0)
-    {
-        return;
-    }
+    if (adaptiveIndexCount == 0 || adaptiveShaderProgram == 0) return;
 
-    glUseProgram(
-        adaptiveShaderProgram
-    );
+    glUseProgram(adaptiveShaderProgram);
+    setCommonUniforms(adaptiveShaderProgram, view, projection);
+    setUniform1f(adaptiveShaderProgram, "uMinElevation", minElevation);
+    setUniform1f(adaptiveShaderProgram, "uMaxElevation", maxElevation);
 
-    setCommonUniforms(
-        adaptiveShaderProgram,
-        view,
-        projection
-    );
+    // Mesh winding is defined for the Z-up basis, so culling removes
+    // hidden internal back faces while depth testing handles overlap.
+    glEnable(GL_CULL_FACE);
+    glCullFace(GL_BACK);
 
-    const int minElevationLocation =
-        glGetUniformLocation(
-            adaptiveShaderProgram,
-            "uMinElevation"
-        );
-
-    const int maxElevationLocation =
-        glGetUniformLocation(
-            adaptiveShaderProgram,
-            "uMaxElevation"
-        );
-
-    if (minElevationLocation >= 0)
-    {
-        glUniform1f(
-            minElevationLocation,
-            minElevation
-        );
-    }
-
-    if (maxElevationLocation >= 0)
-    {
-        glUniform1f(
-            maxElevationLocation,
-            maxElevation
-        );
-    }
-
-    glBindVertexArray(
-        adaptiveVAO
-    );
-
-    glDrawElements(
-        GL_TRIANGLES,
-        static_cast<GLsizei>(
-            adaptiveIndexCount
-        ),
-        GL_UNSIGNED_INT,
-        nullptr
-    );
-
-    glBindVertexArray(
-        0
-    );
+    glBindVertexArray(adaptiveVAO);
+    glDrawElements(GL_TRIANGLES,
+                   static_cast<GLsizei>(adaptiveIndexCount),
+                   GL_UNSIGNED_INT,
+                   nullptr);
+    glBindVertexArray(0);
 }

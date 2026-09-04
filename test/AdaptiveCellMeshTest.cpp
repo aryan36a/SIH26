@@ -3,6 +3,7 @@
 #include "PointCloud.h"
 #include "ResolutionProfile.h"
 
+#include <algorithm>
 #include <cmath>
 #include <cstdlib>
 #include <iostream>
@@ -626,6 +627,7 @@ void testAdaptiveResolutions()
         "mesh contains a 0.05m cell"
     );
 
+
     check(
         foundMid,
         "mesh contains a 0.10m cell"
@@ -635,6 +637,98 @@ void testAdaptiveResolutions()
         foundFar,
         "mesh contains a 0.25m cell"
     );
+}
+
+/*
+ * A high local return must never acquire a synthetic global floor.
+ */
+void testLocalStructureExtent()
+{
+    ResolutionProfile profile;
+    AdaptiveSpatialGrid grid(
+        -10.0f, 10.0f, -10.0f, 10.0f, profile);
+
+    PointCloud cloud;
+    cloud.addPoint({1.000f, 1.000f, 2.8f, 10.0f});
+    cloud.addPoint({1.010f, 1.010f, 3.0f, 10.0f});
+    cloud.addPoint({1.020f, 1.020f, 3.3f, 10.0f});
+    grid.build(cloud);
+
+    const auto cells = grid.getRenderCells();
+    check(cells.size() == 1, "local structure points share one cell");
+    if (cells.size() != 1) return;
+
+    checkNear(cells[0].minimumElevation, 2.8f, 0.000001f,
+              "local structure minimum is observed minimum");
+    checkNear(cells[0].maximumElevation, 3.3f, 0.000001f,
+              "local structure maximum is observed maximum");
+
+    AdaptiveCellMesh mesh;
+    mesh.build(grid);
+
+    float minimumVertexZ = mesh.getVertices().front().z;
+    float maximumVertexZ = minimumVertexZ;
+    for (const auto& vertex : mesh.getVertices())
+    {
+        minimumVertexZ = std::min(minimumVertexZ, vertex.z);
+        maximumVertexZ = std::max(maximumVertexZ, vertex.z);
+    }
+
+    check(minimumVertexZ >= 2.8f - 0.000001f,
+          "structural mesh has no global floor extrusion");
+    check(maximumVertexZ <= 3.3f + 0.000001f,
+          "structural mesh does not exceed local maximum");
+}
+
+void testLocalWallSupport()
+{
+    ResolutionProfile profile;
+    AdaptiveSpatialGrid grid(
+        -10.0f, 10.0f, -10.0f, 10.0f, profile);
+
+    PointCloud cloud;
+    cloud.addPoint({0.95f, 1.00f, 0.10f, 1.0f});
+    cloud.addPoint({1.05f, 1.00f, 0.12f, 1.0f});
+    cloud.addPoint({1.00f, 0.95f, 0.11f, 1.0f});
+    cloud.addPoint({1.00f, 1.05f, 0.13f, 1.0f});
+    cloud.addPoint({1.00f, 1.00f, 2.00f, 1.0f});
+    cloud.addPoint({1.01f, 1.01f, 2.50f, 1.0f});
+    grid.build(cloud);
+
+    AdaptiveCellMesh mesh;
+    mesh.build(grid);
+
+    bool hasLocalBase = false;
+    for (const auto& vertex : mesh.getVertices())
+    {
+        if (std::fabs(vertex.z - 0.11f) < 0.000001f)
+        {
+            hasLocalBase = true;
+            break;
+        }
+    }
+
+    check(hasLocalBase, "supported wall uses local neighboring ground");
+}
+
+void testUnsupportedAerialCell()
+{
+    ResolutionProfile profile;
+    AdaptiveSpatialGrid grid(
+        -10.0f, 10.0f, -10.0f, 10.0f, profile);
+
+    PointCloud cloud;
+    cloud.addPoint({5.00f, 5.00f, 3.0f, 1.0f});
+    cloud.addPoint({5.01f, 5.01f, 3.5f, 1.0f});
+    grid.build(cloud);
+
+    AdaptiveCellMesh mesh;
+    mesh.build(grid);
+
+    check(mesh.getVertexCount() == 4,
+          "unsupported aerial cell has no vertical needle");
+    check(mesh.getIndexCount() == 6,
+          "unsupported aerial cell remains a sampled surface");
 }
 
 }
@@ -668,6 +762,12 @@ int main()
     testMultipleCells();
 
     testAdaptiveResolutions();
+
+    testLocalWallSupport();
+
+    testUnsupportedAerialCell();
+
+    testLocalStructureExtent();
 
 
     std::cout

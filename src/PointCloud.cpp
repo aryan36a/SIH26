@@ -1,6 +1,16 @@
 #include "PointCloud.h"
 
+#include <cmath>
 #include <fstream>
+
+namespace
+{
+bool finitePoint(const Point& point)
+{
+  return std::isfinite(point.x) && std::isfinite(point.y) &&
+       std::isfinite(point.z) && std::isfinite(point.intensity);
+}
+}
 
 void PointCloud::addPoint(const Point &point) { points.push_back(point); }
 
@@ -80,15 +90,18 @@ float PointCloud::getMinIntensity() const {
     return 0.0f;
   }
 
-  float minimum = points[0].intensity;
+  float minimum = 0.0f;
+  bool found = false;
 
   for (const Point &point : points) {
+    if (!finitePoint(point)) continue;
+    if (!found) { minimum = point.intensity; found = true; }
     if (point.intensity < minimum) {
       minimum = point.intensity;
     }
   }
 
-  return minimum;
+  return found ? minimum : 0.0f;
 }
 
 float PointCloud::getMaxIntensity() const {
@@ -96,45 +109,54 @@ float PointCloud::getMaxIntensity() const {
     return 0.0f;
   }
 
-  float maximum = points[0].intensity;
+  float maximum = 0.0f;
+  bool found = false;
 
   for (const Point &point : points) {
+    if (!finitePoint(point)) continue;
+    if (!found) { maximum = point.intensity; found = true; }
     if (point.intensity > maximum) {
       maximum = point.intensity;
     }
   }
 
-  return maximum;
+  return found ? maximum : 0.0f;
 }
 float PointCloud::getMinX() const {
   if (points.empty()) {
     return 0.0f;
   }
 
-  float minimum = points[0].x;
+  float minimum = 0.0f;
+  bool found = false;
 
   for (const Point &point : points) {
+    if (!finitePoint(point)) continue;
+    if (!found) { minimum = point.x; found = true; }
     if (point.x < minimum) {
       minimum = point.x;
     }
   }
 
-  return minimum;
+  return found ? minimum : 0.0f;
 }
 float PointCloud::getMaxX() const {
   if (points.empty()) {
     return 0.0f;
   }
 
-  float maximum = points[0].x;
+  float maximum = 0.0f;
+  bool found = false;
 
   for (const Point &point : points) {
+    if (!finitePoint(point)) continue;
+    if (!found) { maximum = point.x; found = true; }
     if (point.x > maximum) {
       maximum = point.x;
     }
   }
 
-  return maximum;
+  return found ? maximum : 0.0f;
 }
 
 float PointCloud::getMinY() const {
@@ -142,15 +164,18 @@ float PointCloud::getMinY() const {
     return 0.0f;
   }
 
-  float minimum = points[0].y;
+  float minimum = 0.0f;
+  bool found = false;
 
   for (const Point &point : points) {
+    if (!finitePoint(point)) continue;
+    if (!found) { minimum = point.y; found = true; }
     if (point.y < minimum) {
       minimum = point.y;
     }
   }
 
-  return minimum;
+  return found ? minimum : 0.0f;
 }
 
 float PointCloud::getMaxY() const {
@@ -158,15 +183,18 @@ float PointCloud::getMaxY() const {
     return 0.0f;
   }
 
-  float maximum = points[0].y;
+  float maximum = 0.0f;
+  bool found = false;
 
   for (const Point &point : points) {
+    if (!finitePoint(point)) continue;
+    if (!found) { maximum = point.y; found = true; }
     if (point.y > maximum) {
       maximum = point.y;
     }
   }
 
-  return maximum;
+  return found ? maximum : 0.0f;
 }
 
 float PointCloud::getMinZ() const {
@@ -174,15 +202,18 @@ float PointCloud::getMinZ() const {
     return 0.0f;
   }
 
-  float minimum = points[0].z;
+  float minimum = 0.0f;
+  bool found = false;
 
   for (const Point &point : points) {
+    if (!finitePoint(point)) continue;
+    if (!found) { minimum = point.z; found = true; }
     if (point.z < minimum) {
       minimum = point.z;
     }
   }
 
-  return minimum;
+  return found ? minimum : 0.0f;
 }
 
 float PointCloud::getMaxZ() const {
@@ -190,13 +221,16 @@ float PointCloud::getMaxZ() const {
     return 0.0f;
   }
 
-  float maximum = points[0].z;
+  float maximum = 0.0f;
+  bool found = false;
 
   for (const Point &point : points) {
+    if (!finitePoint(point)) continue;
+    if (!found) { maximum = point.z; found = true; }
     if (point.z > maximum) {
       maximum = point.z;
     }
   }
 
-  return maximum;
+  return found ? maximum : 0.0f;
 }
