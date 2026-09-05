@@ -14,23 +14,19 @@
  * Yaw: azimuth angle in degrees, CCW from +X toward +Y.
  *   yaw = 0    → front faces +X
  *   yaw = 90   → front faces +Y
- *   yaw = -180 → front faces -X (default, looking into scene)
+ *   yaw = -180 → front faces -X
  *
  * right = cross(front, worldUp) = (front.y, -front.x, 0)
  *   At yaw=0 (facing +X): right = (0, -1, 0) = -Y direction
- *   At yaw=-180 (facing -X): right = (0, +1, 0) = +Y direction
- *
- * Mouse right (xOffset > 0) must rotate view rightward.
- * Facing -X, rightward rotation increases yaw toward -90.
- * So: yaw += xOffset (positive xOffset → yaw increases → front rotates CCW toward +Y
- *     → from -X perspective this is rightward). ✓
+ * Mouse right (xOffset > 0) rotates the camera clockwise in screen space,
+ * therefore yaw is decreased below. ✓
  * ============================================================
  */
 
 Camera::Camera()
-    : position(20.0f, 0.0f, 15.0f),
-      yaw(-180.0f),
-      pitch(-20.0f),
+    : position(-12.0f, -18.0f, 10.0f),
+      yaw(56.0f),
+      pitch(-22.0f),
       movementSpeed(10.0f),
       mouseSensitivity(0.10f),
       front(-1.0f, 0.0f, 0.0f),

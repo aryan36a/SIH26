@@ -51,9 +51,9 @@ private:
     unsigned int shaderProgram         = 0;
     unsigned int adaptiveShaderProgram = 0;
 
-    // ---- Cached intensity range (raw cloud) ----
-    float minIntensity = 0.0f;
-    float maxIntensity = 1.0f;
+    // ---- Cached elevation range (raw cloud) ----
+    float minPointElevation = 0.0f;
+    float maxPointElevation = 1.0f;
 
     // ---- Cached elevation range (adaptive, percentile-clamped) ----
     float minElevation = 0.0f;

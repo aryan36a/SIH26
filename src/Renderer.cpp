@@ -188,9 +188,21 @@ bool Renderer::uploadPointCloud(const PointCloud& cloud)
     const std::size_t n = cloud.size();
     std::vector<float> buf;
     buf.reserve(n * 4);
+
+    // Keep the true raw range for diagnostics, but use a robust percentile
+    // range for display. A few outlier returns (e.g. vegetation/isolated
+    // reflections) should not compress the useful terrain into the bottom
+    // of the thermal colormap.
+    std::vector<float> elevationSamples;
+    elevationSamples.reserve(std::min<std::size_t>(n, 200000));
+
     bool haveFinitePoint = false;
-    minIntensity = 0.0f;
-    maxIntensity = 1.0f;
+    float rawMinElevation = 0.0f;
+    float rawMaxElevation = 1.0f;
+    float firstElevation = 0.0f;
+    float middleElevation = 0.0f;
+    float lastElevation = 0.0f;
+    std::size_t finitePointIndex = 0;
     for (std::size_t i = 0; i < n; ++i)
     {
         const Point& p = cloud.getPoint(i);
@@ -199,15 +211,26 @@ bool Renderer::uploadPointCloud(const PointCloud& cloud)
 
         if (!haveFinitePoint)
         {
-            minIntensity = p.intensity;
-            maxIntensity = p.intensity;
+            rawMinElevation = p.z;
+            rawMaxElevation = p.z;
+            firstElevation = p.z;
             haveFinitePoint = true;
         }
         else
         {
-            minIntensity = std::min(minIntensity, p.intensity);
-            maxIntensity = std::max(maxIntensity, p.intensity);
+            rawMinElevation = std::min(rawMinElevation, p.z);
+            rawMaxElevation = std::max(rawMaxElevation, p.z);
         }
+
+        if (finitePointIndex == n / 2) middleElevation = p.z;
+        lastElevation = p.z;
+
+        // Deterministic bounded sample for percentile normalization.
+        const std::size_t sampleStride = std::max<std::size_t>(n / 200000, 1);
+        if ((finitePointIndex % sampleStride) == 0)
+            elevationSamples.push_back(p.z);
+
+        ++finitePointIndex;
 
         buf.push_back(p.x);
         buf.push_back(p.y);
@@ -216,6 +239,31 @@ bool Renderer::uploadPointCloud(const PointCloud& cloud)
     }
 
     if (!haveFinitePoint) return false;
+
+    // 1st/99th percentile gives the terrain most of the color gamut while
+    // retaining rare high/low returns in the geometry itself.
+    std::sort(elevationSamples.begin(), elevationSamples.end());
+    const std::size_t sampleCount = elevationSamples.size();
+    const std::size_t lowIndex = static_cast<std::size_t>((sampleCount - 1) * 0.01f);
+    const std::size_t highIndex = static_cast<std::size_t>((sampleCount - 1) * 0.99f);
+
+    minPointElevation = elevationSamples[lowIndex];
+    maxPointElevation = elevationSamples[highIndex];
+
+    if (maxPointElevation - minPointElevation < 1e-4f)
+    {
+        minPointElevation = rawMinElevation;
+        maxPointElevation = rawMaxElevation;
+    }
+
+    std::cout << "Raw LiDAR elevation Z range: "
+              << rawMinElevation << " -> " << rawMaxElevation << '\n'
+              << "Raw LiDAR display Z range (P01-P99): "
+              << minPointElevation << " -> " << maxPointElevation << '\n'
+              << "Raw LiDAR representative Z values: "
+              << firstElevation << ", " << middleElevation << ", "
+              << lastElevation << '\n'
+              << "Raw LiDAR normalized display range: 0 -> 1" << '\n';
 
     glBindVertexArray(pointVAO);
     glBindBuffer(GL_ARRAY_BUFFER, pointVBO);
@@ -402,9 +450,9 @@ void Renderer::render(const PointCloud& cloud,
     glEnable(GL_PROGRAM_POINT_SIZE);
     glUseProgram(shaderProgram);
     setCommonUniforms(shaderProgram, view, projection);
-    setUniform1f(shaderProgram, "uMinIntensity", minIntensity);
-    setUniform1f(shaderProgram, "uMaxIntensity", maxIntensity);
-    setUniform1f(shaderProgram, "uPointBaseSize", 0.20f);
+    setUniform1f(shaderProgram, "uMinElevation", minPointElevation);
+    setUniform1f(shaderProgram, "uMaxElevation", maxPointElevation);
+    setUniform1f(shaderProgram, "uPointBaseSize", 0.12f);
 
     glBindVertexArray(pointVAO);
     glDrawArrays(GL_POINTS, 0, pointCount);
@@ -426,9 +474,9 @@ void Renderer::render(const SpatialGrid& grid,
     glEnable(GL_PROGRAM_POINT_SIZE);
     glUseProgram(shaderProgram);
     setCommonUniforms(shaderProgram, view, projection);
-    setUniform1f(shaderProgram, "uMinIntensity", minIntensity);
-    setUniform1f(shaderProgram, "uMaxIntensity", maxIntensity);
-    setUniform1f(shaderProgram, "uPointBaseSize", 0.40f);
+    setUniform1f(shaderProgram, "uMinElevation", minPointElevation);
+    setUniform1f(shaderProgram, "uMaxElevation", maxPointElevation);
+    setUniform1f(shaderProgram, "uPointBaseSize", 0.28f);
 
     glBindVertexArray(gridVAO);
     glDrawArrays(GL_POINTS, 0, gridVertCount);
